@@ -212,8 +212,9 @@ class AIIntegration {
       const model = modelOverride || promptManager.getSelectedModel() || 'gpt-4o';
 
       // Determine system prompt
-      const systemInstruction = promptTemplate?.prompt || 
-        promptManager.defaultPrompts[0].prompt;
+      const systemInstruction = typeof promptTemplate === 'string'
+        ? promptTemplate
+        : (promptTemplate?.prompt || (typeof categoryManager !== 'undefined' ? categoryManager.getDefaultPrompt() : 'You are an expert Church AV and IT Systems Engineer. Convert these notes into a structured document.'));
 
       showNotification(`✨ Calling OpenAI (${model})... Structuring documentation`, 'info');
 

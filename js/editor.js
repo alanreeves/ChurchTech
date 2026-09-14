@@ -334,14 +334,30 @@ async function toggleSpeechToText() {
 
 function openAIRevisionModal() {
   const modal = document.getElementById('ai-modal');
-  const promptSelect = document.getElementById('ai-prompt-select');
   const modelSelect = document.getElementById('ai-model-select');
 
-  // Populate prompt options
-  const prompts = promptManager.getPrompts();
-  promptSelect.innerHTML = prompts.map(p => `
-    <option value="${p.id}">${p.icon || '📝'} ${escapeHtml(p.title)}</option>
-  `).join('');
+  // Identify current note's category
+  const categorySelect = document.getElementById('note-category');
+  const selectedCategoryName = categorySelect ? categorySelect.value : '';
+  const cat = categoryManager.getCategoryByName(selectedCategoryName);
+
+  // Update Category Badge & Prompt in modal
+  const catIconEl = document.getElementById('ai-cat-icon');
+  const catNameEl = document.getElementById('ai-cat-name');
+  const catDescEl = document.getElementById('ai-cat-desc');
+  const promptInput = document.getElementById('ai-category-prompt-text');
+
+  if (cat) {
+    if (catIconEl) catIconEl.textContent = cat.icon || '🏷️';
+    if (catNameEl) catNameEl.textContent = cat.name;
+    if (catDescEl) catDescEl.textContent = cat.description || `Specialized structuring prompt for ${cat.name}`;
+    if (promptInput) promptInput.value = cat.prompt || categoryManager.getDefaultPrompt();
+  } else {
+    if (catIconEl) catIconEl.textContent = '🏷️';
+    if (catNameEl) catNameEl.textContent = selectedCategoryName || 'General Tech';
+    if (catDescEl) catDescEl.textContent = 'Using default ChurchTech structuring prompt';
+    if (promptInput) promptInput.value = categoryManager.getDefaultPrompt();
+  }
 
   // Populate model options
   const currentModel = promptManager.getSelectedModel();
@@ -359,7 +375,6 @@ function openAIRevisionModal() {
     document.getElementById('custom-model-group').style.display = 'none';
   }
 
-  updatePromptPreview();
   modal.style.display = 'flex';
 }
 
@@ -377,19 +392,9 @@ function toggleCustomModelInput() {
   }
 }
 
-function updatePromptPreview() {
-  const promptId = document.getElementById('ai-prompt-select').value;
-  const promptObj = promptManager.getPrompts().find(p => p.id === promptId);
-
-  if (promptObj) {
-    document.getElementById('prompt-desc-preview').textContent = promptObj.description || '';
-    document.getElementById('prompt-instructions-preview').textContent = promptObj.prompt || '';
-  }
-}
-
 async function executeAIRevision() {
-  const promptId = document.getElementById('ai-prompt-select').value;
-  const promptObj = promptManager.getPrompts().find(p => p.id === promptId);
+  const promptInput = document.getElementById('ai-category-prompt-text');
+  const promptText = promptInput ? promptInput.value.trim() : '';
 
   const modelChoice = document.getElementById('ai-model-select').value;
   let modelName = modelChoice;
@@ -415,7 +420,7 @@ async function executeAIRevision() {
   btn.innerHTML = '⏳ Structuring...';
 
   try {
-    const result = await aiIntegration.reviseTextWithOpenAI(currentText, promptObj, modelName);
+    const result = await aiIntegration.reviseTextWithOpenAI(currentText, promptText, modelName);
 
     if (result && result.content) {
       const formattedHtml = markdownToHtml(result.content);

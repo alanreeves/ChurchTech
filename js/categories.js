@@ -1,20 +1,57 @@
 // ChurchTech - Categories Management Module
-// Manages configurable church tech categories, local persistence, and file export/import
+// Manages configurable church tech categories, each with its own specialized OpenAI structuring prompt
 
 class CategoryManager {
   constructor() {
     this.storageKey = 'churchtech_categories';
     this.defaultCategories = [
-      { id: 'cat-network', name: 'Network & IT', color: '#34d399', icon: '🌐', description: 'Switches, VLANs, subnets, routers, Wi-Fi access points, credentials' }
+      {
+        id: 'cat-network',
+        name: 'Network & IT',
+        color: '#34d399',
+        icon: '🌐',
+        description: 'Switches, VLANs, subnets, routers, Wi-Fi access points, credentials',
+        prompt: `You are a Church IT & Systems Administrator.
+Convert the following technical notes into a standardized Network & Software Infrastructure Record.
+
+Format using Markdown:
+# Network & Software Configuration: [Subsystem Name]
+
+### 1. Network Architecture
+- **Subnet / VLAN**: (e.g. VLAN 10 - AV Production, VLAN 20 - Dante Audio, VLAN 30 - Church Staff)
+- **Gateway & DNS**:
+- **Managed Switch Ports**:
+
+### 2. Device IP Table
+| Device Name | Location | IP Address | MAC Address | Role |
+|---|---|---|---|---|
+(Extract all devices mentioned into the table)
+
+### 3. Software Applications & Versions
+List software mentioned (e.g. ProPresenter, vMix, Companion, ATEM Software Control, Dante Controller, Q-SYS Designer) with versions, license notes, and config files.
+
+### 4. Access & Credentials Notes
+System logins, Web GUI addresses, and default passwords (keep safe for authorized technicians).`
+      }
     ];
+  }
+
+  // Get generic fallback prompt
+  getDefaultPrompt() {
+    return `You are an expert Church AV & Technical Systems Engineer.
+Convert the following technical notes into a clear, structured technical document:
+- Remove speech fillers, repetitions, and spoken disfluencies.
+- Format into clear Markdown sections, tables, and bullet points.
+- Strictly preserve all technical equipment names, model numbers, cable types, port assignments, and settings.
+- Maintain a factual, professional engineering tone.`;
   }
 
   // Retrieve all categories
   getCategories() {
     try {
-      // Migrate stored categories so that default is trimmed down to Network & IT only
+      // One-time migration to merge prompts directly into categories
       const versionKey = 'churchtech_categories_ver';
-      const targetVer = 'v3_network_it_only';
+      const targetVer = 'v4_category_with_prompt';
       if (localStorage.getItem(versionKey) !== targetVer) {
         this.saveCategories(this.defaultCategories);
         localStorage.setItem(versionKey, targetVer);
@@ -25,14 +62,23 @@ class CategoryManager {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+          // Ensure each category has a prompt
+          return parsed.map(c => ({
+            ...c,
+            prompt: c.prompt || this.getDefaultPrompt()
+          }));
         }
       }
     } catch (err) {
       console.warn('Error reading categories from localStorage:', err);
     }
-    // Return defaults if none saved
     return this.defaultCategories;
+  }
+
+  // Get single category by name or id
+  getCategoryByName(name) {
+    const categories = this.getCategories();
+    return categories.find(c => c.name.toLowerCase() === (name || '').toLowerCase()) || null;
   }
 
   // Save categories to local storage
@@ -47,7 +93,7 @@ class CategoryManager {
   }
 
   // Add a new category
-  addCategory(name, color = '#6366f1', icon = '🏷️', description = '') {
+  addCategory(name, color = '#6366f1', icon = '🏷️', description = '', promptText = '') {
     const categories = this.getCategories();
     const cleanName = name.trim();
     if (!cleanName) throw new Error('Category name cannot be empty');
@@ -62,7 +108,8 @@ class CategoryManager {
       name: cleanName,
       color: color || '#6366f1',
       icon: icon || '🏷️',
-      description: description.trim()
+      description: description.trim(),
+      prompt: (promptText || '').trim() || this.getDefaultPrompt()
     };
 
     categories.push(newCat);
@@ -77,6 +124,9 @@ class CategoryManager {
     if (index === -1) throw new Error('Category not found');
 
     categories[index] = { ...categories[index], ...updates };
+    if (!categories[index].prompt || !categories[index].prompt.trim()) {
+      categories[index].prompt = this.getDefaultPrompt();
+    }
     this.saveCategories(categories);
     return categories[index];
   }
@@ -103,8 +153,8 @@ class CategoryManager {
     const categories = this.getCategories();
     const exportPayload = {
       app: 'ChurchTech',
-      type: 'categories',
-      version: APP_CONFIG.VERSION || '1.0.0',
+      type: 'categories_with_prompts',
+      version: APP_CONFIG.VERSION || '1.0.5',
       exportedAt: new Date().toISOString(),
       categoryCount: categories.length,
       categories: categories
@@ -155,7 +205,8 @@ class CategoryManager {
               name: String(cat.name).trim(),
               color: cat.color || '#6366f1',
               icon: cat.icon || '🏷️',
-              description: cat.description || ''
+              description: cat.description || '',
+              prompt: cat.prompt || this.getDefaultPrompt()
             };
           });
 

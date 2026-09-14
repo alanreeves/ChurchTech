@@ -13,16 +13,12 @@ It enables church technicians and volunteers to dictate technical notes via **De
 - Pre-configured church AV keyterm boosting (`Dante, ATEM, ProPresenter, Behringer X32, Allen & Heath SQ, Shure Axient/ULXD, Sennheiser, QSC, SDI, NDI, PTZ, FOH, IEM, stagebox, phantom power, submix, talkback, vMix, Companion, Stream Deck, Birddog, Luminex, DMX...`).
 - Audio input device selector.
 
-### 2. ✨ AI Technical Structuring (OpenAI)
-- **Multi-Prompt Template Library**: Select the right structure for your technical note:
-  - **Hardware Inventory & Specs**: Formats notes into equipment, make/model, serials, rack locations, I/O ports, and power.
-  - **Signal Flow & Routing**: Documents audio channel patch points, Dante routes, video SDI/NDI paths, and monitor sends.
-  - **Standard Operating Procedure (SOP)**: Creates volunteer-friendly startup, live execution, and shutdown checklists.
-  - **Troubleshooting Guide**: Structures issues into Symptoms, Diagnostic Verification, Root Cause, and Resolution.
-  - **Network & Software Config**: Formats IP addresses, subnets, VLANs, credentials, and software versions.
-  - **General Technical Polish**: Cleans up speech disfluencies while strictly preserving all AV/IT terminology.
-- **Any OpenAI Model**: Select popular models (`gpt-4o`, `gpt-4o-mini`, `o3-mini`, `gpt-4-turbo`, `gpt-3.5-turbo`) or type in any custom/fine-tuned model.
-- **Prompt Library Management**: Add, edit, delete, export, or import custom prompt templates.
+### 2. ✨ Unified Technical Categories & OpenAI Structuring Prompts
+- Each technical category encapsulates its own specialized **OpenAI structuring prompt** used automatically when sending notes in that category to OpenAI.
+- **Default Category**: "Network & IT" includes a pre-configured, comprehensive Network & Software Infrastructure prompt formatting subnets, switch ports, IP tables, software versions, and credentials.
+- **Custom Prompts Per Category**: When adding or editing any technical category, technicians can define or modify the exact prompt that OpenAI will follow to structure notes for that discipline.
+- **In-Editor Flexibility**: When structuring a note with OpenAI, the category's assigned prompt is pre-loaded and can be inspected or adjusted on-the-fly before running.
+- **Arbitrary Model Support**: Select popular models (`gpt-4o`, `gpt-4o-mini`, `o3-mini`, `gpt-4-turbo`, `gpt-3.5-turbo`) or type in any custom/fine-tuned model.
 
 ### 3. ☁️ Google Drive & NotebookLM Integration
 - Direct upload of notes to a designated shared Google Drive folder as formatted **native Google Docs**.
@@ -30,15 +26,14 @@ It enables church technicians and volunteers to dictate technical notes via **De
 - Uses a lightweight **Google Apps Script Webhook**—no Google Cloud Console project or OAuth verification required.
 - Tracks document IDs, upload timestamps, and direct links to open the Google Doc.
 
-### 4. 🏷️ Customizable Technical Categories
-- User-selectable categories (Audio/FOH, Video & Projection, Lighting, Streaming, Network & IT, Presentation, Stage & Rigging, SOP, General).
-- Add custom categories with custom icons and color badges.
-- **Export Categories to Local File** (`.json`) and **Import/Reload from Local File** right from Settings.
+### 4. 🏷️ Category Management with JSON Export / Import
+- Mobile-first card layout for easily managing categories on phones and tablets in the field.
+- **Export Categories & Prompts to Local File** (`.json`) and **Import/Reload from Local File** right from Settings.
 
 ### 5. 🔄 Visible Versioning & Service Worker Update Control
-- Prominently visible version code badge on the home page, editor, and settings (`v1.0.4 (build 2026.09.14)`).
+- Prominently visible version code badge on the home page, editor, and settings (`v1.0.5 (build 2026.09.14)`).
 - **"🔄 Force Reload & Update App"** button in Settings: Commands the Service Worker to flush offline caches, skip waiting, and reload to the freshest deployment.
-- **💾 Save & Export Settings to Local File**: The Save & Export button in the Maintenance & Privacy section saves configuration to browser storage and exports all settings into a local JSON file (including Deepgram and OpenAI keys, prompts, and categories).
+- **💾 Save & Export Settings to Local File**: The Save & Export button in the Maintenance & Privacy section saves configuration to browser storage and exports all settings into a local JSON file (including Deepgram and OpenAI keys, models, and categories with their prompts).
 - **📂 Reload Settings with API Key Prompt**: When reloading settings from a file, prompts whether or not to restore API keys, allowing users to restore preferences without unintentionally overwriting existing credentials.
 
 ---

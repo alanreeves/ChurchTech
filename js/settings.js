@@ -13,7 +13,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     loadOpenAISettings();
     loadGoogleDriveSettings();
     renderCategoriesTable();
-    renderPromptsList();
     await populateAudioDevices();
 
   } catch (err) {
@@ -97,11 +96,22 @@ function renderCategoriesTable() {
             </div>
           </div>
           <div class="category-card-actions">
-            <button class="btn btn-small btn-secondary" onclick="openEditCategoryModal('${cat.id}')" title="Edit Category" aria-label="Edit">✏️ Edit</button>
+            <button class="btn btn-small btn-secondary" onclick="openEditCategoryModal('${cat.id}')" title="Edit Category & Prompt" aria-label="Edit">✏️ Edit</button>
             <button class="btn btn-small btn-danger" onclick="deleteCategoryById('${cat.id}')" title="Delete Category" aria-label="Delete">🗑</button>
           </div>
         </div>
         ${cat.description ? `<p class="category-card-desc">${escapeHtml(cat.description)}</p>` : ''}
+        <div class="category-card-prompt-preview" style="margin-top: 10px; padding: 8px 10px; background: rgba(255,255,255,0.03); border-radius: 6px; border: 1px solid var(--border-light); font-size: 11px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+            <span style="font-weight: 600; color: #a5b4fc; display: flex; align-items: center; gap: 4px;">
+              <span>🤖</span> OpenAI Prompt Attached
+            </span>
+            <span style="font-size: 10px; color: var(--text-muted);">${(cat.prompt || '').length} chars</span>
+          </div>
+          <div style="color: var(--text-secondary); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-family: ui-monospace, monospace; font-size: 11px;">
+            ${escapeHtml((cat.prompt || categoryManager.getDefaultPrompt()).trim())}
+          </div>
+        </div>
       </div>
     `).join('');
   } else if (tbody) {
@@ -132,6 +142,10 @@ function openAddCategoryModal() {
   document.getElementById('cat-icon-input').value = '🏷️';
   document.getElementById('cat-color-input').value = '#6366f1';
   document.getElementById('cat-desc-input').value = '';
+  const promptInput = document.getElementById('cat-prompt-input');
+  if (promptInput) {
+    promptInput.value = categoryManager.getDefaultPrompt();
+  }
   document.getElementById('category-modal').style.display = 'flex';
 }
 
@@ -145,6 +159,10 @@ function openEditCategoryModal(id) {
   document.getElementById('cat-icon-input').value = cat.icon || '🏷️';
   document.getElementById('cat-color-input').value = cat.color || '#6366f1';
   document.getElementById('cat-desc-input').value = cat.description || '';
+  const promptInput = document.getElementById('cat-prompt-input');
+  if (promptInput) {
+    promptInput.value = cat.prompt || categoryManager.getDefaultPrompt(cat.name);
+  }
   document.getElementById('category-modal').style.display = 'flex';
 }
 
@@ -158,6 +176,7 @@ function saveCategoryModal() {
   const icon = document.getElementById('cat-icon-input').value.trim() || '🏷️';
   const color = document.getElementById('cat-color-input').value;
   const desc = document.getElementById('cat-desc-input').value.trim();
+  const prompt = document.getElementById('cat-prompt-input') ? document.getElementById('cat-prompt-input').value.trim() : '';
 
   if (!name) {
     showNotification('Category name cannot be blank', 'warning');
@@ -166,11 +185,11 @@ function saveCategoryModal() {
 
   try {
     if (id) {
-      categoryManager.updateCategory(id, { name, icon, color, description: desc });
-      showNotification('Category updated', 'success');
+      categoryManager.updateCategory(id, { name, icon, color, description: desc, prompt });
+      showNotification('Category & OpenAI prompt updated', 'success');
     } else {
-      categoryManager.addCategory(name, color, icon, desc);
-      showNotification('Category added', 'success');
+      categoryManager.addCategory(name, color, icon, desc, prompt);
+      showNotification('Category & OpenAI prompt added', 'success');
     }
     closeCategoryModal();
     renderCategoriesTable();
@@ -258,123 +277,6 @@ function handleSettingsModelChange() {
   } else {
     customGroup.style.display = 'none';
     promptManager.setSelectedModel(val);
-  }
-}
-
-function renderPromptsList() {
-  const container = document.getElementById('prompts-list');
-  if (!container) return;
-
-  const prompts = promptManager.getPrompts();
-  container.innerHTML = prompts.map(p => `
-    <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; gap: 12px;">
-      <div style="flex: 1;">
-        <div style="font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px;">
-          <span>${p.icon || '📝'}</span> ${escapeHtml(p.title)}
-        </div>
-        <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">
-          ${escapeHtml(p.description || '')}
-        </div>
-      </div>
-      <div style="display: flex; gap: 6px;">
-        <button class="btn btn-small btn-secondary" onclick="openEditPromptModal('${p.id}')">✏️ Edit</button>
-        <button class="btn btn-small btn-danger" onclick="deletePromptById('${p.id}')">🗑</button>
-      </div>
-    </div>
-  `).join('');
-}
-
-function openAddPromptModal() {
-  document.getElementById('prompt-modal-title').textContent = 'Add Technical Prompt Template';
-  document.getElementById('edit-prompt-id').value = '';
-  document.getElementById('prompt-title-input').value = '';
-  document.getElementById('prompt-icon-input').value = '📝';
-  document.getElementById('prompt-desc-input').value = '';
-  document.getElementById('prompt-text-input').value = '';
-  document.getElementById('prompt-modal').style.display = 'flex';
-}
-
-function openEditPromptModal(id) {
-  const prompt = promptManager.getPrompts().find(p => p.id === id);
-  if (!prompt) return;
-
-  document.getElementById('prompt-modal-title').textContent = 'Edit Prompt Template';
-  document.getElementById('edit-prompt-id').value = prompt.id;
-  document.getElementById('prompt-title-input').value = prompt.title;
-  document.getElementById('prompt-icon-input').value = prompt.icon || '📝';
-  document.getElementById('prompt-desc-input').value = prompt.description || '';
-  document.getElementById('prompt-text-input').value = prompt.prompt || '';
-  document.getElementById('prompt-modal').style.display = 'flex';
-}
-
-function closePromptModal() {
-  document.getElementById('prompt-modal').style.display = 'none';
-}
-
-function savePromptModal() {
-  const id = document.getElementById('edit-prompt-id').value;
-  const title = document.getElementById('prompt-title-input').value.trim();
-  const icon = document.getElementById('prompt-icon-input').value.trim() || '📝';
-  const desc = document.getElementById('prompt-desc-input').value.trim();
-  const promptText = document.getElementById('prompt-text-input').value.trim();
-
-  if (!title || !promptText) {
-    showNotification('Title and prompt instructions are required', 'warning');
-    return;
-  }
-
-  try {
-    if (id) {
-      promptManager.updatePrompt(id, { title, icon, description: desc, prompt: promptText });
-      showNotification('Prompt template updated', 'success');
-    } else {
-      promptManager.addPrompt(title, promptText, desc, icon);
-      showNotification('Prompt template added', 'success');
-    }
-    closePromptModal();
-    renderPromptsList();
-  } catch (err) {
-    showNotification(err.message, 'error');
-  }
-}
-
-function deletePromptById(id) {
-  if (confirm('Delete this prompt template?')) {
-    try {
-      promptManager.deletePrompt(id);
-      showNotification('Prompt deleted', 'success');
-      renderPromptsList();
-    } catch (err) {
-      showNotification(err.message, 'error');
-    }
-  }
-}
-
-function resetPromptsToDefaults() {
-  if (confirm('Reset all prompt templates back to default ChurchTech presets?')) {
-    promptManager.resetToDefaults();
-    renderPromptsList();
-    showNotification('Prompts reset to defaults', 'success');
-  }
-}
-
-function exportPromptsToFile() {
-  promptManager.exportToFile();
-  showNotification('Prompts exported to JSON file', 'success');
-}
-
-async function importPromptsFromFile(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  try {
-    await promptManager.importFromFile(file);
-    renderPromptsList();
-    showNotification('Prompts imported successfully!', 'success');
-  } catch (err) {
-    showNotification('Import error: ' + err.message, 'error');
-  } finally {
-    event.target.value = '';
   }
 }
 
@@ -610,7 +512,6 @@ async function handleReloadSettingsFile(event) {
     loadOpenAISettings();
     loadGoogleDriveSettings();
     renderCategoriesTable();
-    renderPromptsList();
     await populateAudioDevices();
 
     const keyMsg = reloadKeys ? 'with API keys' : 'preserving current API keys';
