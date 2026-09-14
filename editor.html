@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="ChurchTech Editor - Document Church Technical Infrastructure">
+  <meta name="theme-color" content="#0f172a">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="icons/icon-192x192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192x192.png">
+  <link rel="stylesheet" href="styles.css">
+  <title>ChurchTech - Technical Note Editor</title>
+</head>
+
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="container">
+      <div class="header-content">
+        <div class="brand-section">
+          <div class="app-logo">CT</div>
+          <div class="header-title-wrap">
+            <h1 class="header-title">
+              Editor
+              <span class="version-badge" id="editor-version-display">v1.0.0</span>
+            </h1>
+            <span class="header-tagline">AV & Technical Documentation</span>
+          </div>
+        </div>
+
+        <div class="header-actions">
+          <button onclick="saveNote()" class="btn btn-primary" title="Save Note (Ctrl+S)">💾 Save</button>
+          <button onclick="backToNotes()" class="btn btn-secondary">← Back</button>
+          <button id="btn-upload-drive" onclick="uploadNoteToGoogleDrive()" class="btn btn-secondary" title="Upload as Google Doc to Google Drive">
+            ☁️ Upload to Drive
+          </button>
+          <button onclick="downloadCurrentNoteAsMarkdown()" class="btn btn-secondary" title="Download note as Markdown file">
+            ⬇ Markdown
+          </button>
+          <button id="delete-button" onclick="deleteCurrentNote()" class="btn btn-danger" style="display: none;" title="Delete this note">
+            🗑 Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <div class="container">
+      <div class="editor-container">
+        
+        <!-- Metadata Row (Category & Drive Link) -->
+        <div class="editor-meta-row">
+          <div style="flex: 1; min-width: 200px;">
+            <label for="note-category" style="font-size: 12px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 4px;">
+              Technical Category
+            </label>
+            <select id="note-category" class="form-control" style="width: 100%;"></select>
+          </div>
+
+          <div id="drive-sync-status-box" style="display: flex; align-items: flex-end; padding-bottom: 4px;">
+            <span id="drive-sync-indicator" class="drive-badge drive-badge-unsynced">
+              ☁️ Not uploaded to Google Drive
+            </span>
+          </div>
+        </div>
+
+        <!-- Note Title Input -->
+        <input type="text" id="note-title" class="editor-title-input" placeholder="Enter note title (e.g. FOH Dante Routing & Console Patching)..." autocomplete="off">
+
+        <!-- Formatting & AI Toolbar -->
+        <div class="editor-toolbar">
+          <div class="toolbar-group">
+            <button id="btn-bold" class="toolbar-btn" onclick="formatBold()" title="Bold (Ctrl+B)">
+              <strong>B</strong>
+            </button>
+            <button id="btn-italic" class="toolbar-btn" onclick="formatItalic()" title="Italic (Ctrl+I)">
+              <em>I</em>
+            </button>
+            <button id="btn-h1" class="toolbar-btn" onclick="formatHeading('h1')" title="Heading 1">
+              H1
+            </button>
+            <button id="btn-h2" class="toolbar-btn" onclick="formatHeading('h2')" title="Heading 2">
+              H2
+            </button>
+            <button id="btn-link" class="toolbar-btn" onclick="formatLink()" title="Insert Link">
+              🔗
+            </button>
+          </div>
+
+          <div class="toolbar-group">
+            <button class="toolbar-btn" onclick="formatNumberedList()" title="Numbered List">
+              1. List
+            </button>
+            <button class="toolbar-btn" onclick="formatBulletedList()" title="Bulleted List">
+              • List
+            </button>
+          </div>
+
+          <div class="toolbar-group">
+            <!-- Deepgram Voice-to-Text -->
+            <button id="btn-speak" class="toolbar-btn toolbar-btn-mic" onclick="toggleSpeechToText()" title="Record voice with Deepgram">
+              🎤 Speak
+            </button>
+
+            <!-- OpenAI Structuring & Revision -->
+            <button class="toolbar-btn toolbar-btn-ai" onclick="openAIRevisionModal()" title="Revise and structure with OpenAI">
+              ✨ AI Revise & Structure
+            </button>
+          </div>
+        </div>
+
+        <!-- Rich Text Contenteditable Editor Area -->
+        <div id="note-content" class="editor-content" contenteditable="true" spellcheck="true" aria-label="ChurchTech note editor"></div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px; font-size: 12px; color: var(--text-muted);">
+          <span id="autosave-status">Ready</span>
+          <span id="char-count">0 characters</span>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <!-- AI Structuring & Prompt Selection Modal -->
+  <div id="ai-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">✨ OpenAI Note Structuring</h3>
+        <button class="btn btn-secondary btn-small" onclick="closeAIRevisionModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px;">
+          Choose a specialized church tech prompt and OpenAI model to transform raw dictations into structured engineering documentation.
+        </p>
+
+        <!-- Prompt Template Selector -->
+        <div class="form-group">
+          <label for="ai-prompt-select">Select Prompt Template</label>
+          <select id="ai-prompt-select" class="form-control" onchange="updatePromptPreview()"></select>
+          <p id="prompt-desc-preview" style="font-size: 12px; color: var(--accent-cyan); margin-top: 4px;"></p>
+        </div>
+
+        <!-- Model Selection -->
+        <div class="form-group">
+          <label for="ai-model-select">OpenAI Model</label>
+          <select id="ai-model-select" class="form-control" onchange="toggleCustomModelInput()"></select>
+        </div>
+
+        <div class="form-group" id="custom-model-group" style="display: none;">
+          <label for="ai-custom-model">Custom Model Name</label>
+          <input type="text" id="ai-custom-model" class="form-control" placeholder="e.g. gpt-4.5-preview or fine-tuned model">
+        </div>
+
+        <!-- Output Handling -->
+        <div class="form-group">
+          <label>Revision Destination</label>
+          <div style="display: flex; gap: 16px; margin-top: 6px;">
+            <label style="font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+              <input type="radio" name="ai-action" value="replace" checked>
+              Replace existing text
+            </label>
+            <label style="font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+              <input type="radio" name="ai-action" value="append">
+              Append structured document below
+            </label>
+          </div>
+        </div>
+
+        <!-- Prompt Preview (Collapsible) -->
+        <details style="margin-top: 14px; font-size: 12px; background: var(--bg-surface); padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-light);">
+          <summary style="cursor: pointer; font-weight: 600; color: var(--text-muted);">View Full System Prompt Instructions</summary>
+          <pre id="prompt-instructions-preview" style="white-space: pre-wrap; margin-top: 8px; font-size: 11px; color: var(--text-secondary);"></pre>
+        </details>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeAIRevisionModal()">Cancel</button>
+        <button id="btn-run-ai" class="btn btn-primary" onclick="executeAIRevision()">✨ Run Structuring</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="config.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/categories.js"></script>
+  <script src="js/prompts.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/gdrive.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/editor.js"></script>
+</body>
+
+</html>

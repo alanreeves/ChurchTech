@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="ChurchTech Settings - Configure AI keys, prompts, Google Drive webhook, and categories">
+  <meta name="theme-color" content="#0f172a">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="icons/icon-192x192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192x192.png">
+  <link rel="stylesheet" href="styles.css">
+  <title>ChurchTech - Settings</title>
+</head>
+
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="container">
+      <div class="header-content">
+        <div class="brand-section">
+          <div class="app-logo">CT</div>
+          <div class="header-title-wrap">
+            <h1 class="header-title">
+              Settings
+              <span class="version-badge" id="settings-version-display">v1.0.0</span>
+            </h1>
+            <span class="header-tagline">Preferences & Integrations</span>
+          </div>
+        </div>
+
+        <div class="header-actions">
+          <button id="save-all-settings-btn" class="btn btn-primary" onclick="saveAllSettings()">💾 Save Settings</button>
+          <button onclick="window.location.href='index.html'" class="btn btn-secondary">← Back to Notes</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <div class="container">
+      <div class="settings-container">
+
+        <!-- Section 1: Version & Service Worker Reload -->
+        <div class="settings-section">
+          <h2 class="settings-section-title">🔄 Application Version & Update Control</h2>
+          <div class="version-control-box">
+            <div class="version-info">
+              <span style="font-size: 13px; color: var(--text-muted);">Current Installed Version:</span>
+              <span id="version-code-display" style="font-size: 18px; font-weight: 700; color: #a5b4fc; font-family: ui-monospace, monospace;">
+                v1.0.0 (build 2026.09.14)
+              </span>
+              <span style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">
+                Uses Service Worker caching for instant offline loading.
+              </span>
+            </div>
+            <div>
+              <button id="btn-force-reload" class="btn btn-primary" onclick="forceServiceWorkerReload()">
+                🔄 Force Reload & Update App
+              </button>
+            </div>
+          </div>
+          <p class="settings-help">
+            Click "Force Reload & Update App" whenever a change is deployed. This commands the Service Worker to flush offline asset caches, skip waiting, and reload the latest version into your browser.
+          </p>
+        </div>
+
+        <!-- Section 2: Categories Management (With File Export / Import) -->
+        <div class="settings-section">
+          <h2 class="settings-section-title">🏷️ Technical Categories Management</h2>
+          <p class="settings-help" style="margin-bottom: 14px;">
+            Customize the technical categories used to classify church infrastructure. You can export your customized categories to a local JSON file or reload them from a file at any time.
+          </p>
+
+          <div style="display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap;">
+            <button class="btn btn-secondary btn-small" onclick="openAddCategoryModal()">+ Add New Category</button>
+            <button class="btn btn-secondary btn-small" onclick="exportCategoriesToFile()">💾 Export Categories to File</button>
+            <button class="btn btn-secondary btn-small" onclick="document.getElementById('import-categories-input').click()">📂 Import Categories from File</button>
+            <input type="file" id="import-categories-input" accept=".json" style="display: none;" onchange="importCategoriesFromFile(event)">
+            <button class="btn btn-danger btn-small" onclick="resetCategoriesToDefaults()">↻ Reset to Defaults</button>
+          </div>
+
+          <div style="overflow-x: auto;">
+            <table class="item-table" id="categories-table">
+              <thead>
+                <tr>
+                  <th style="width: 50px;">Icon</th>
+                  <th>Category Name</th>
+                  <th>Color</th>
+                  <th>Description</th>
+                  <th style="width: 80px; text-align: right;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="categories-table-body">
+                <!-- Injected via settings.js -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Section 3: OpenAI Text Structuring & Prompts Library -->
+        <div class="settings-section">
+          <h2 class="settings-section-title">✨ OpenAI Note Structuring & Model</h2>
+
+          <div class="form-group">
+            <label for="openai-api-key">OpenAI API Key</label>
+            <div style="display: flex; gap: 8px;">
+              <input type="password" id="openai-api-key" class="form-control" placeholder="sk-..." autocomplete="off">
+              <button class="btn btn-secondary" onclick="togglePasswordVisibility('openai-api-key', this)">Show</button>
+            </div>
+            <p class="settings-help">
+              Key is stored locally in browser storage. Get your key at <a href="https://platform.openai.com/api-keys" target="_blank" style="color: var(--accent-cyan);">platform.openai.com</a>.
+            </p>
+          </div>
+
+          <div class="form-group">
+            <label for="openai-default-model">Default OpenAI Model</label>
+            <select id="openai-default-model" class="form-control" onchange="handleSettingsModelChange()"></select>
+          </div>
+
+          <div class="form-group" id="settings-custom-model-group" style="display: none;">
+            <label for="openai-custom-model">Custom OpenAI Model Name</label>
+            <input type="text" id="openai-custom-model" class="form-control" placeholder="e.g. gpt-4.5-preview, o1, or fine-tuned model">
+            <p class="settings-help">Type any model string supported by your OpenAI API key.</p>
+          </div>
+
+          <hr style="border: 0; border-top: 1px solid var(--border-light); margin: 24px 0 16px 0;">
+
+          <!-- Prompt Templates Library -->
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+            <h3 style="font-size: 15px; font-weight: 600; color: #fff;">Saved Prompt Templates Library</h3>
+            <div style="display: flex; gap: 6px;">
+              <button class="btn btn-secondary btn-small" onclick="openAddPromptModal()">+ New Prompt</button>
+              <button class="btn btn-secondary btn-small" onclick="exportPromptsToFile()">💾 Export Prompts</button>
+              <button class="btn btn-secondary btn-small" onclick="document.getElementById('import-prompts-input').click()">📂 Import Prompts</button>
+              <input type="file" id="import-prompts-input" accept=".json" style="display: none;" onchange="importPromptsFromFile(event)">
+              <button class="btn btn-danger btn-small" onclick="resetPromptsToDefaults()">↻ Reset Prompts</button>
+            </div>
+          </div>
+
+          <div id="prompts-list" style="display: flex; flex-direction: column; gap: 10px;">
+            <!-- Injected via settings.js -->
+          </div>
+        </div>
+
+        <!-- Section 4: Google Drive Webhook Integration -->
+        <div class="settings-section">
+          <h2 class="settings-section-title">☁️ Google Drive & Google Docs Webhook</h2>
+          <p class="settings-help" style="margin-bottom: 16px;">
+            Upload notes directly into your shared Google Drive as native Google Docs, formatted for Google's NotebookLM.
+          </p>
+
+          <div class="form-group">
+            <label for="gdrive-webhook-url">Google Apps Script Web App URL</label>
+            <input type="url" id="gdrive-webhook-url" class="form-control" placeholder="https://script.google.com/macros/s/.../exec">
+            <p class="settings-help">
+              Deploy the provided Google Apps Script in your Google account and paste its Web App URL here.
+            </p>
+          </div>
+
+          <div class="form-group">
+            <label for="gdrive-folder-id">Target Google Drive Folder ID (Optional)</label>
+            <input type="text" id="gdrive-folder-id" class="form-control" placeholder="e.g. 1A2b3C4d5E... (from the URL of your shared folder)">
+            <p class="settings-help">
+              If left blank, notes will be saved into a "ChurchTech Documentation" folder created in your Google Drive root.
+            </p>
+          </div>
+
+          <div style="display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap;">
+            <button class="btn btn-secondary" onclick="testGoogleDriveConnection()">🧪 Test Webhook Connection</button>
+            <button class="btn btn-secondary" onclick="openAppsScriptGuideModal()">📋 View Google Apps Script Setup Guide</button>
+          </div>
+        </div>
+
+        <!-- Section 5: Deepgram Speech-to-Text -->
+        <div class="settings-section">
+          <h2 class="settings-section-title">🎤 Deepgram Speech-to-Text</h2>
+
+          <div class="form-group">
+            <label for="deepgram-api-key">Deepgram API Key</label>
+            <div style="display: flex; gap: 8px;">
+              <input type="password" id="deepgram-api-key" class="form-control" placeholder="Deepgram API key" autocomplete="off">
+              <button class="btn btn-secondary" onclick="togglePasswordVisibility('deepgram-api-key', this)">Show</button>
+            </div>
+            <p class="settings-help">
+              Get your key at <a href="https://console.deepgram.com" target="_blank" style="color: var(--accent-cyan);">console.deepgram.com</a>.
+            </p>
+          </div>
+
+          <div class="form-group">
+            <label for="deepgram-model">Deepgram Model</label>
+            <select id="deepgram-model" class="form-control">
+              <option value="nova-3">Nova 3 (Latest, Highest Accuracy)</option>
+              <option value="nova-2">Nova 2</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="deepgram-language">Language</label>
+            <select id="deepgram-language" class="form-control">
+              <option value="en-US">English (US)</option>
+              <option value="en-GB">English (UK)</option>
+              <option value="en-AU">English (Australia)</option>
+              <option value="es-ES">Spanish</option>
+              <option value="fr-FR">French</option>
+              <option value="de-DE">German</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="deepgram-keyterms">Church AV Keyterms Boosting (Comma-separated)</label>
+            <textarea id="deepgram-keyterms" class="form-control" style="min-height: 80px;" placeholder="Dante, ATEM, ProPresenter, Behringer, X32, Allen & Heath, SQ, Shure, Sennheiser, QSC, SDI, NDI, PTZ, FOH, IEM..."></textarea>
+            <p class="settings-help">
+              Deepgram will boost recognition accuracy for these technical terms when transcribing your voice.
+            </p>
+          </div>
+
+          <div class="form-group">
+            <label for="audio-device-select">Microphone Input Device</label>
+            <select id="audio-device-select" class="form-control">
+              <option value="default">Default Microphone</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Section 6: Maintenance & Privacy -->
+        <div class="settings-section">
+          <h2 class="settings-section-title">🔐 Maintenance & Privacy</h2>
+          <p class="settings-help" style="margin-bottom: 16px;">
+            All API keys and notes are kept private in your browser's local storage and IndexedDB.
+          </p>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button class="btn btn-secondary" onclick="exportNotesAsJSON()">💾 Backup All Notes (JSON)</button>
+            <button class="btn btn-danger" onclick="clearApiKeys()">🔐 Clear API Keys</button>
+            <button class="btn btn-danger" onclick="resetAllSettingsToFactory()">⚠️ Factory Reset App</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <!-- Add / Edit Category Modal -->
+  <div id="category-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="cat-modal-title">Add Technical Category</h3>
+        <button class="btn btn-secondary btn-small" onclick="closeCategoryModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="edit-category-id">
+        <div class="form-group">
+          <label for="cat-name-input">Category Name</label>
+          <input type="text" id="cat-name-input" class="form-control" placeholder="e.g. Stage Rigging & Power">
+        </div>
+        <div class="form-group">
+          <label for="cat-icon-input">Emoji / Icon</label>
+          <input type="text" id="cat-icon-input" class="form-control" style="width: 100px;" value="🏷️">
+        </div>
+        <div class="form-group">
+          <label for="cat-color-input">Color Tag</label>
+          <input type="color" id="cat-color-input" style="height: 40px; width: 80px; background: none; border: 1px solid var(--border-color); cursor: pointer;" value="#6366f1">
+        </div>
+        <div class="form-group">
+          <label for="cat-desc-input">Description (Optional)</label>
+          <input type="text" id="cat-desc-input" class="form-control" placeholder="What technical equipment falls under this category?">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeCategoryModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveCategoryModal()">Save Category</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add / Edit Prompt Modal -->
+  <div id="prompt-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="prompt-modal-title">Add Prompt Template</h3>
+        <button class="btn btn-secondary btn-small" onclick="closePromptModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="edit-prompt-id">
+        <div class="form-group">
+          <label for="prompt-title-input">Template Title</label>
+          <input type="text" id="prompt-title-input" class="form-control" placeholder="e.g. Dante Patching Matrix Spec">
+        </div>
+        <div class="form-group">
+          <label for="prompt-icon-input">Icon</label>
+          <input type="text" id="prompt-icon-input" class="form-control" style="width: 100px;" value="📝">
+        </div>
+        <div class="form-group">
+          <label for="prompt-desc-input">Short Description</label>
+          <input type="text" id="prompt-desc-input" class="form-control" placeholder="Brief summary shown in dropdown">
+        </div>
+        <div class="form-group">
+          <label for="prompt-text-input">System Prompt Instructions for OpenAI</label>
+          <textarea id="prompt-text-input" class="form-control" style="min-height: 220px; font-family: ui-monospace, monospace; font-size: 13px;" placeholder="You are an expert church AV technician..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closePromptModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="savePromptModal()">Save Prompt</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Google Apps Script Setup Guide Modal -->
+  <div id="apps-script-guide-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 720px;">
+      <div class="modal-header">
+        <h3 class="modal-title">Google Apps Script Webhook Setup</h3>
+        <button class="btn btn-secondary btn-small" onclick="closeAppsScriptGuideModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <ol style="padding-left: 20px; display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: var(--text-secondary); margin-bottom: 14px;">
+          <li>Visit <a href="https://script.google.com" target="_blank" style="color: var(--accent-cyan);">script.google.com</a> and click <strong>New Project</strong>.</li>
+          <li>Click the button below to copy the ChurchTech Google Apps Script code to your clipboard.</li>
+          <li>Paste the code into the script editor, replacing any default template code.</li>
+          <li>Click <strong>Deploy</strong> &rarr; <strong>New deployment</strong>.</li>
+          <li>Select type: <strong>Web app</strong>. Set <em>Execute as:</em> <strong>Me</strong> and <em>Who has access:</em> <strong>Anyone</strong>.</li>
+          <li>Click <strong>Deploy</strong>, authorize Google permissions, and copy the generated <strong>Web App URL</strong>.</li>
+          <li>Paste that Web App URL into ChurchTech Settings above and click <em>Test Webhook Connection</em>!</li>
+        </ol>
+
+        <button class="btn btn-primary" onclick="copyAppsScriptCode()">📋 Copy Apps Script Code to Clipboard</button>
+        <textarea id="apps-script-code-buffer" style="display: none;"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeAppsScriptGuideModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="config.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/categories.js"></script>
+  <script src="js/prompts.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/gdrive.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/settings.js"></script>
+</body>
+
+</html>

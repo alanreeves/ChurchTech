@@ -1,0 +1,477 @@
+// ChurchTech - Rich Text Editor Page Logic
+
+let currentNoteId = null;
+let isNewNote = true;
+let unsavedChanges = false;
+let autoSaveTimer = null;
+
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    // 1. Version display
+    const verDisplay = document.getElementById('editor-version-display');
+    if (verDisplay) {
+      verDisplay.textContent = APP_CONFIG.VERSION_DISPLAY;
+    }
+
+    // 2. Initialize DB & Categories
+    await churchTechDB.initDB();
+    populateCategoryDropdown();
+
+    // 3. Load note from URL parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    currentNoteId = urlParams.get('id');
+
+    if (currentNoteId) {
+      await loadNote(currentNoteId);
+      isNewNote = false;
+      document.getElementById('delete-button').style.display = 'inline-flex';
+    } else {
+      isNewNote = true;
+      document.getElementById('note-title').focus();
+    }
+
+    setupEditorListeners();
+    updateCharCount();
+
+  } catch (err) {
+    console.error('Editor initialization error:', err);
+    showNotification('Error initializing editor: ' + err.message, 'error');
+  }
+});
+
+// Populate Category Dropdown
+function populateCategoryDropdown(selectedCategory = null) {
+  const select = document.getElementById('note-category');
+  if (!select) return;
+
+  const categories = categoryManager.getCategories();
+  select.innerHTML = categories.map(c => `
+    <option value="${escapeHtml(c.name)}" ${selectedCategory === c.name ? 'selected' : ''}>
+      ${c.icon || '🏷️'} ${escapeHtml(c.name)}
+    </option>
+  `).join('');
+}
+
+// Load existing note
+async function loadNote(id) {
+  try {
+    const note = await churchTechDB.getNote(id);
+    if (!note) {
+      showNotification('Note not found', 'error');
+      window.location.href = 'index.html';
+      return;
+    }
+
+    document.getElementById('note-title').value = note.title;
+    document.getElementById('note-content').innerHTML = note.text;
+    populateCategoryDropdown(note.category || 'General');
+
+    updateDriveSyncBadge(note);
+    document.title = `${note.title} - ChurchTech`;
+    unsavedChanges = false;
+  } catch (err) {
+    showNotification('Failed to load note: ' + err.message, 'error');
+  }
+}
+
+// Update Google Drive sync badge
+function updateDriveSyncBadge(note) {
+  const box = document.getElementById('drive-sync-indicator');
+  const btn = document.getElementById('btn-upload-drive');
+  if (!box) return;
+
+  if (note && note.gdriveDocId && note.gdriveDocUrl) {
+    box.className = 'drive-badge drive-badge-synced';
+    box.innerHTML = `
+      <span>☁️</span> In Google Drive: 
+      <a href="${note.gdriveDocUrl}" target="_blank" style="color: inherit; text-decoration: underline; margin-left: 4px;">
+        Open Google Doc ↗
+      </a>
+    `;
+    if (btn) btn.innerHTML = '☁️ Re-Sync to Drive';
+  } else {
+    box.className = 'drive-badge drive-badge-unsynced';
+    box.innerHTML = '☁️ Not uploaded to Google Drive';
+    if (btn) btn.innerHTML = '☁️ Upload to Drive';
+  }
+}
+
+// Setup editor event listeners
+function setupEditorListeners() {
+  const titleInput = document.getElementById('note-title');
+  const contentEditor = document.getElementById('note-content');
+  const catSelect = document.getElementById('note-category');
+
+  const onEdit = () => {
+    unsavedChanges = true;
+    updateCharCount();
+    document.getElementById('autosave-status').textContent = 'Unsaved changes...';
+
+    // Debounced autosave
+    clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(() => {
+      autoSaveNote();
+    }, 2500);
+  };
+
+  titleInput.addEventListener('input', () => {
+    onEdit();
+    const t = titleInput.value.trim();
+    document.title = `${t || 'New Note'} - ChurchTech`;
+  });
+
+  contentEditor.addEventListener('input', onEdit);
+  catSelect.addEventListener('change', onEdit);
+
+  contentEditor.addEventListener('blur', () => {
+    autoSaveNote();
+  });
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      e.preventDefault();
+      saveNote();
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+      e.preventDefault();
+      formatBold();
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'i') {
+      e.preventDefault();
+      formatItalic();
+    }
+  });
+
+  // Warn before leaving with unsaved changes
+  window.addEventListener('beforeunload', (e) => {
+    if (unsavedChanges) {
+      e.preventDefault();
+      e.returnValue = '';
+    }
+  });
+}
+
+function updateCharCount() {
+  const text = document.getElementById('note-content').innerText || '';
+  const countSpan = document.getElementById('char-count');
+  if (countSpan) {
+    countSpan.textContent = `${text.length} characters | ${text.trim().split(/\s+/).filter(Boolean).length} words`;
+  }
+}
+
+// ============ FORMATTING ============
+
+function formatBold() {
+  document.execCommand('bold', false, null);
+  document.getElementById('note-content').focus();
+}
+
+function formatItalic() {
+  document.execCommand('italic', false, null);
+  document.getElementById('note-content').focus();
+}
+
+function formatHeading(tag) {
+  document.execCommand('formatBlock', false, tag);
+  document.getElementById('note-content').focus();
+}
+
+function formatNumberedList() {
+  document.execCommand('insertOrderedList', false, null);
+  document.getElementById('note-content').focus();
+}
+
+function formatBulletedList() {
+  document.execCommand('insertUnorderedList', false, null);
+  document.getElementById('note-content').focus();
+}
+
+function formatLink() {
+  const url = prompt('Enter the link URL (e.g. equipment manual, web interface):');
+  if (url) {
+    document.execCommand('createLink', false, url);
+    document.getElementById('note-content').focus();
+  }
+}
+
+// ============ NOTE ACTIONS ============
+
+async function saveNote() {
+  try {
+    const title = document.getElementById('note-title').value.trim();
+    const content = document.getElementById('note-content').innerHTML;
+    const category = document.getElementById('note-category').value;
+
+    if (!title) {
+      showNotification('Please enter a title for your note', 'warning');
+      document.getElementById('note-title').focus();
+      return;
+    }
+
+    if (!content || content === '<br>') {
+      showNotification('Please record or enter note content', 'warning');
+      document.getElementById('note-content').focus();
+      return;
+    }
+
+    if (isNewNote) {
+      const newNote = await churchTechDB.createNote(title, content, category);
+      currentNoteId = newNote.id;
+      isNewNote = false;
+      document.getElementById('delete-button').style.display = 'inline-flex';
+      window.history.replaceState({}, '', `editor.html?id=${encodeURIComponent(currentNoteId)}`);
+    } else {
+      await churchTechDB.updateNote(currentNoteId, title, content, category);
+    }
+
+    unsavedChanges = false;
+    document.getElementById('autosave-status').textContent = 'Saved at ' + new Date().toLocaleTimeString();
+    showNotification('Note saved successfully', 'success');
+  } catch (err) {
+    console.error('Save error:', err);
+    showNotification('Error saving note: ' + err.message, 'error');
+  }
+}
+
+async function autoSaveNote() {
+  if (unsavedChanges && currentNoteId) {
+    try {
+      const title = document.getElementById('note-title').value.trim();
+      const content = document.getElementById('note-content').innerHTML;
+      const category = document.getElementById('note-category').value;
+
+      if (title && content && content !== '<br>') {
+        await churchTechDB.updateNote(currentNoteId, title, content, category);
+        unsavedChanges = false;
+        document.getElementById('autosave-status').textContent = 'Auto-saved at ' + new Date().toLocaleTimeString();
+      }
+    } catch (e) {
+      console.warn('Auto-save failed:', e);
+    }
+  }
+}
+
+function backToNotes() {
+  if (unsavedChanges) {
+    if (confirm('You have unsaved changes. Are you sure you want to leave?')) {
+      window.location.href = 'index.html';
+    }
+  } else {
+    window.location.href = 'index.html';
+  }
+}
+
+async function deleteCurrentNote() {
+  if (!currentNoteId) return;
+
+  if (confirm('Are you sure you want to delete this technical note? This action cannot be undone.')) {
+    try {
+      await churchTechDB.deleteNote(currentNoteId);
+      showNotification('Note deleted', 'success');
+      setTimeout(() => {
+        window.location.href = 'index.html';
+      }, 500);
+    } catch (err) {
+      showNotification('Error deleting: ' + err.message, 'error');
+    }
+  }
+}
+
+async function downloadCurrentNoteAsMarkdown() {
+  if (!currentNoteId || isNewNote) {
+    await saveNote();
+  }
+  if (currentNoteId) {
+    await downloadNoteAsMarkdown(currentNoteId);
+  }
+}
+
+// ============ DEEPGRAM SPEECH-TO-TEXT ============
+
+async function toggleSpeechToText() {
+  const btn = document.getElementById('btn-speak');
+
+  await aiIntegration.toggleSpeechToText(
+    // onTranscriptReceived
+    (transcript, isFinal) => {
+      const contentEditor = document.getElementById('note-content');
+      const curText = contentEditor.innerText;
+      const needsSpace = curText.length > 0 && !curText.endsWith(' ');
+
+      if (contentEditor.innerHTML && contentEditor.innerHTML !== '<br>') {
+        contentEditor.innerHTML += (needsSpace ? ' ' : '') + escapeHtml(transcript);
+      } else {
+        contentEditor.innerHTML = escapeHtml(transcript);
+      }
+
+      // Move cursor to end
+      const range = document.createRange();
+      const sel = window.getSelection();
+      range.selectNodeContents(contentEditor);
+      range.collapse(false);
+      sel.removeAllRanges();
+      sel.addRange(range);
+
+      contentEditor.focus();
+      unsavedChanges = true;
+      updateCharCount();
+    },
+    // onStatusChange
+    (isRecording) => {
+      if (isRecording) {
+        btn.innerHTML = '🔴 Stop Recording';
+        btn.classList.add('recording-active');
+      } else {
+        btn.innerHTML = '🎤 Speak';
+        btn.classList.remove('recording-active');
+      }
+    }
+  );
+}
+
+// ============ OPENAI NOTE STRUCTURING MODAL ============
+
+function openAIRevisionModal() {
+  const modal = document.getElementById('ai-modal');
+  const promptSelect = document.getElementById('ai-prompt-select');
+  const modelSelect = document.getElementById('ai-model-select');
+
+  // Populate prompt options
+  const prompts = promptManager.getPrompts();
+  promptSelect.innerHTML = prompts.map(p => `
+    <option value="${p.id}">${p.icon || '📝'} ${escapeHtml(p.title)}</option>
+  `).join('');
+
+  // Populate model options
+  const currentModel = promptManager.getSelectedModel();
+  const popular = promptManager.popularModels;
+  let modelHtml = popular.map(m => `
+    <option value="${m.id}" ${currentModel === m.id ? 'selected' : ''}>${m.name}</option>
+  `).join('');
+  modelHtml += `<option value="custom" ${!popular.some(m => m.id === currentModel) ? 'selected' : ''}>Custom Model (specify below)...</option>`;
+  modelSelect.innerHTML = modelHtml;
+
+  if (!popular.some(m => m.id === currentModel)) {
+    document.getElementById('custom-model-group').style.display = 'block';
+    document.getElementById('ai-custom-model').value = currentModel;
+  } else {
+    document.getElementById('custom-model-group').style.display = 'none';
+  }
+
+  updatePromptPreview();
+  modal.style.display = 'flex';
+}
+
+function closeAIRevisionModal() {
+  document.getElementById('ai-modal').style.display = 'none';
+}
+
+function toggleCustomModelInput() {
+  const val = document.getElementById('ai-model-select').value;
+  const customGroup = document.getElementById('custom-model-group');
+  if (val === 'custom') {
+    customGroup.style.display = 'block';
+  } else {
+    customGroup.style.display = 'none';
+  }
+}
+
+function updatePromptPreview() {
+  const promptId = document.getElementById('ai-prompt-select').value;
+  const promptObj = promptManager.getPrompts().find(p => p.id === promptId);
+
+  if (promptObj) {
+    document.getElementById('prompt-desc-preview').textContent = promptObj.description || '';
+    document.getElementById('prompt-instructions-preview').textContent = promptObj.prompt || '';
+  }
+}
+
+async function executeAIRevision() {
+  const promptId = document.getElementById('ai-prompt-select').value;
+  const promptObj = promptManager.getPrompts().find(p => p.id === promptId);
+
+  const modelChoice = document.getElementById('ai-model-select').value;
+  let modelName = modelChoice;
+  if (modelChoice === 'custom') {
+    modelName = (document.getElementById('ai-custom-model').value || '').trim();
+    if (!modelName) {
+      showNotification('Please enter a custom model name', 'warning');
+      return;
+    }
+  }
+
+  const action = document.querySelector('input[name="ai-action"]:checked').value;
+  const contentEditor = document.getElementById('note-content');
+  const currentText = contentEditor.innerText || contentEditor.textContent;
+
+  if (!currentText || !currentText.trim()) {
+    showNotification('Please enter or dictate some text first before revising', 'warning');
+    return;
+  }
+
+  const btn = document.getElementById('btn-run-ai');
+  btn.disabled = true;
+  btn.innerHTML = '⏳ Structuring...';
+
+  try {
+    const result = await aiIntegration.reviseTextWithOpenAI(currentText, promptObj, modelName);
+
+    if (result && result.content) {
+      const formattedHtml = markdownToHtml(result.content);
+
+      if (action === 'append') {
+        contentEditor.innerHTML += '<br><hr><br>' + formattedHtml;
+      } else {
+        contentEditor.innerHTML = formattedHtml;
+      }
+
+      unsavedChanges = true;
+      closeAIRevisionModal();
+      updateCharCount();
+      await autoSaveNote();
+      showNotification('Documentation structured and formatted!', 'success');
+    }
+  } catch (err) {
+    showNotification('AI Structuring Error: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '✨ Run Structuring';
+  }
+}
+
+// ============ GOOGLE DRIVE UPLOAD ============
+
+async function uploadNoteToGoogleDrive() {
+  if (!googleDriveSync.isConfigured()) {
+    showNotification('Please set your Google Apps Script Webhook URL in Settings first', 'warning');
+    return;
+  }
+
+  // Ensure note is saved
+  await saveNote();
+
+  const note = await churchTechDB.getNote(currentNoteId);
+  if (!note) return;
+
+  const btn = document.getElementById('btn-upload-drive');
+  btn.disabled = true;
+  btn.innerHTML = '⏳ Uploading to Drive...';
+
+  try {
+    showNotification('Creating Google Doc in shared Google Drive...', 'info');
+    const result = await googleDriveSync.uploadNoteAsGoogleDoc(note);
+
+    if (result && result.success) {
+      await churchTechDB.markNoteUploaded(note.id, result.docId, result.docUrl);
+      const updatedNote = await churchTechDB.getNote(note.id);
+      updateDriveSyncBadge(updatedNote);
+      showNotification(`✅ Successfully uploaded as Google Doc "${result.title}"`, 'success');
+    }
+  } catch (err) {
+    showNotification('Google Drive Upload Failed: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '☁️ Re-Sync to Drive';
+  }
+}
