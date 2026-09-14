@@ -416,11 +416,11 @@ async function populateAudioDevices() {
   });
 }
 
-// ============ SAVE ALL SETTINGS ============
+// ============ SAVE ALL SETTINGS & EXPORT TO FILE ============
 
 function saveAllSettings() {
   try {
-    // 1. Deepgram
+    // 1. Collect Deepgram values
     const dgKey = document.getElementById('deepgram-api-key').value.trim();
     const dgModel = document.getElementById('deepgram-model').value;
     const dgLang = document.getElementById('deepgram-language').value;
@@ -430,7 +430,7 @@ function saveAllSettings() {
     const mic = document.getElementById('audio-device-select').value;
     aiIntegration.setAudioInputDevice(mic);
 
-    // 2. OpenAI
+    // 2. Collect OpenAI values
     const oaiKey = document.getElementById('openai-api-key').value.trim();
     const oaiModelChoice = document.getElementById('openai-default-model').value;
     let oaiModel = oaiModelChoice;
@@ -439,14 +439,155 @@ function saveAllSettings() {
     }
     aiIntegration.updateOpenAISettings(oaiKey, oaiModel);
 
-    // 3. Google Drive
+    // 3. Collect Google Drive values
     const gdriveUrl = document.getElementById('gdrive-webhook-url').value.trim();
     const gdriveFolder = document.getElementById('gdrive-folder-id').value.trim();
     googleDriveSync.saveSettings(gdriveUrl, gdriveFolder);
 
-    showNotification('All settings saved successfully!', 'success');
+    // 4. Create complete settings export payload including Deepgram & OpenAI keys
+    const settingsPayload = {
+      app: 'ChurchTech',
+      type: 'settings',
+      version: APP_CONFIG.VERSION || '1.0.1',
+      exportedAt: new Date().toISOString(),
+      settings: {
+        deepgramApiKey: dgKey,
+        deepgramModel: dgModel,
+        deepgramLanguage: dgLang,
+        deepgramKeyterms: dgKeyterms,
+        audioDeviceId: mic,
+        openaiApiKey: oaiKey,
+        openaiModel: oaiModel,
+        gdriveWebhookUrl: gdriveUrl,
+        gdriveFolderId: gdriveFolder
+      },
+      categories: categoryManager.getCategories(),
+      prompts: promptManager.getPrompts()
+    };
+
+    // 5. Save settings to a local file
+    const jsonString = JSON.stringify(settingsPayload, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const dateStr = new Date().toISOString().split('T')[0];
+    link.href = url;
+    link.download = `churchtech-settings-${dateStr}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    showNotification('Settings saved and downloaded to ' + link.download, 'success');
   } catch (err) {
+    console.error('Error saving settings:', err);
     showNotification('Error saving settings: ' + err.message, 'error');
+  }
+}
+
+// ============ RELOAD SETTINGS FROM LOCAL FILE ============
+
+function triggerReloadSettingsFile() {
+  const input = document.getElementById('reload-settings-file-input');
+  if (input) {
+    input.value = '';
+    input.click();
+  }
+}
+
+async function handleReloadSettingsFile(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  try {
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+
+    // Validate payload
+    const settingsData = parsed.settings || parsed;
+    if (!settingsData || typeof settingsData !== 'object') {
+      throw new Error('Invalid settings file format.');
+    }
+
+    // Check if API keys exist in the file
+    const hasDgKey = Boolean(settingsData.deepgramApiKey);
+    const hasOaiKey = Boolean(settingsData.openaiApiKey);
+    let reloadKeys = false;
+
+    if (hasDgKey || hasOaiKey) {
+      reloadKeys = confirm(
+        'This settings file contains API keys (Deepgram / OpenAI).\n\n' +
+        'Would you like to reload the API keys from this file as well?\n\n' +
+        '• Click [OK] to reload and apply the API keys from the file.\n' +
+        '• Click [Cancel] to reload all other settings while keeping your current API keys.'
+      );
+    }
+
+    // Restore Deepgram settings
+    if (reloadKeys && settingsData.deepgramApiKey !== undefined) {
+      localStorage.setItem('deepgramApiKey', settingsData.deepgramApiKey);
+      aiIntegration.deepgramApiKey = settingsData.deepgramApiKey;
+    }
+    if (settingsData.deepgramModel) {
+      localStorage.setItem('deepgramModel', settingsData.deepgramModel);
+      aiIntegration.deepgramModel = settingsData.deepgramModel;
+    }
+    if (settingsData.deepgramLanguage) {
+      localStorage.setItem('deepgramLanguage', settingsData.deepgramLanguage);
+      aiIntegration.deepgramLanguage = settingsData.deepgramLanguage;
+    }
+    if (settingsData.deepgramKeyterms !== undefined) {
+      localStorage.setItem('deepgramKeyterms', settingsData.deepgramKeyterms);
+      aiIntegration.deepgramKeyterms = settingsData.deepgramKeyterms;
+    }
+    if (settingsData.audioDeviceId) {
+      localStorage.setItem('audioDeviceId', settingsData.audioDeviceId);
+      aiIntegration.audioDeviceId = settingsData.audioDeviceId;
+    }
+
+    // Restore OpenAI settings
+    if (reloadKeys && settingsData.openaiApiKey !== undefined) {
+      localStorage.setItem('openaiApiKey', settingsData.openaiApiKey);
+      aiIntegration.openaiApiKey = settingsData.openaiApiKey;
+    }
+    if (settingsData.openaiModel) {
+      promptManager.setSelectedModel(settingsData.openaiModel);
+    }
+
+    // Restore Google Drive settings
+    if (settingsData.gdriveWebhookUrl !== undefined) {
+      localStorage.setItem(googleDriveSync.webhookUrlKey, settingsData.gdriveWebhookUrl);
+    }
+    if (settingsData.gdriveFolderId !== undefined) {
+      localStorage.setItem(googleDriveSync.folderIdKey, settingsData.gdriveFolderId);
+    }
+
+    // Restore Categories if present
+    if (Array.isArray(parsed.categories) && parsed.categories.length > 0) {
+      categoryManager.saveCategories(parsed.categories);
+    }
+
+    // Restore Prompts if present
+    if (Array.isArray(parsed.prompts) && parsed.prompts.length > 0) {
+      promptManager.savePrompts(parsed.prompts);
+    }
+
+    // Refresh UI inputs and tables
+    loadDeepgramSettings();
+    loadOpenAISettings();
+    loadGoogleDriveSettings();
+    renderCategoriesTable();
+    renderPromptsList();
+    await populateAudioDevices();
+
+    const keyMsg = reloadKeys ? 'with API keys' : 'preserving current API keys';
+    showNotification(`Settings reloaded successfully from file (${keyMsg})!`, 'success');
+
+  } catch (err) {
+    console.error('Error reloading settings file:', err);
+    showNotification('Failed to reload settings: ' + err.message, 'error');
+  } finally {
+    event.target.value = '';
   }
 }
 

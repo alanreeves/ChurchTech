@@ -30,7 +30,9 @@
         </div>
 
         <div class="header-actions">
-          <button id="save-all-settings-btn" class="btn btn-primary" onclick="saveAllSettings()">💾 Save Settings</button>
+          <button id="save-all-settings-btn" class="btn btn-primary" onclick="saveAllSettings()" title="Save settings and download to a local file">💾 Save Settings</button>
+          <button id="reload-all-settings-btn" class="btn btn-secondary" onclick="triggerReloadSettingsFile()" title="Reload settings from a local file">📂 Reload Settings</button>
+          <input type="file" id="reload-settings-file-input" accept=".json" style="display: none;" onchange="handleReloadSettingsFile(event)">
           <button onclick="window.location.href='index.html'" class="btn btn-secondary">← Back to Notes</button>
         </div>
       </div>
@@ -231,6 +233,8 @@
             All API keys and notes are kept private in your browser's local storage and IndexedDB.
           </p>
           <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button class="btn btn-secondary" onclick="saveAllSettings()">💾 Save & Export Settings to File</button>
+            <button class="btn btn-secondary" onclick="triggerReloadSettingsFile()">📂 Reload Settings from File</button>
             <button class="btn btn-secondary" onclick="exportNotesAsJSON()">💾 Backup All Notes (JSON)</button>
             <button class="btn btn-danger" onclick="clearApiKeys()">🔐 Clear API Keys</button>
             <button class="btn btn-danger" onclick="resetAllSettingsToFactory()">⚠️ Factory Reset App</button>
