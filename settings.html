@@ -72,29 +72,16 @@
             Customize the technical categories used to classify church infrastructure. You can export your customized categories to a local JSON file or reload them from a file at any time.
           </p>
 
-          <div style="display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap;">
-            <button class="btn btn-secondary btn-small" onclick="openAddCategoryModal()">+ Add New Category</button>
-            <button class="btn btn-secondary btn-small" onclick="exportCategoriesToFile()">💾 Export Categories to File</button>
-            <button class="btn btn-secondary btn-small" onclick="document.getElementById('import-categories-input').click()">📂 Import Categories from File</button>
+          <div class="category-actions-bar">
+            <button class="btn btn-secondary btn-small" onclick="openAddCategoryModal()">+ Add Category</button>
+            <button class="btn btn-secondary btn-small" onclick="exportCategoriesToFile()">💾 Export File</button>
+            <button class="btn btn-secondary btn-small" onclick="document.getElementById('import-categories-input').click()">📂 Import File</button>
             <input type="file" id="import-categories-input" accept=".json" style="display: none;" onchange="importCategoriesFromFile(event)">
-            <button class="btn btn-danger btn-small" onclick="resetCategoriesToDefaults()">↻ Reset to Defaults</button>
+            <button class="btn btn-danger btn-small" onclick="resetCategoriesToDefaults()">↻ Reset Default</button>
           </div>
 
-          <div style="overflow-x: auto;">
-            <table class="item-table" id="categories-table">
-              <thead>
-                <tr>
-                  <th style="width: 50px;">Icon</th>
-                  <th>Category Name</th>
-                  <th>Color</th>
-                  <th>Description</th>
-                  <th style="width: 80px; text-align: right;">Action</th>
-                </tr>
-              </thead>
-              <tbody id="categories-table-body">
-                <!-- Injected via settings.js -->
-              </tbody>
-            </table>
+          <div id="categories-container" class="categories-card-list">
+            <!-- Injected dynamically via settings.js -->
           </div>
         </div>
 

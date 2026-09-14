@@ -69,27 +69,60 @@ async function forceServiceWorkerReload() {
 // ============ CATEGORIES MANAGEMENT ============
 
 function renderCategoriesTable() {
+  const container = document.getElementById('categories-container');
   const tbody = document.getElementById('categories-table-body');
-  if (!tbody) return;
-
   const categories = categoryManager.getCategories();
-  tbody.innerHTML = categories.map(cat => `
-    <tr>
-      <td style="font-size: 18px; text-align: center;">${cat.icon || '🏷️'}</td>
-      <td>
-        <strong style="color: #fff;">${escapeHtml(cat.name)}</strong>
-      </td>
-      <td>
-        <span style="display: inline-block; width: 14px; height: 14px; border-radius: 50%; background-color: ${cat.color}; vertical-align: middle; margin-right: 6px;"></span>
-        <code style="font-size: 11px; color: var(--text-muted);">${cat.color}</code>
-      </td>
-      <td style="color: var(--text-secondary);">${escapeHtml(cat.description || '-')}</td>
-      <td style="text-align: right;">
-        <button class="btn btn-small btn-secondary" onclick="openEditCategoryModal('${cat.id}')">✏️</button>
-        <button class="btn btn-small btn-danger" onclick="deleteCategoryById('${cat.id}')">🗑</button>
-      </td>
-    </tr>
-  `).join('');
+
+  if (container) {
+    if (categories.length === 0) {
+      container.innerHTML = `
+        <div style="padding: 24px 16px; text-align: center; color: var(--text-muted); font-size: 13px; background: var(--bg-surface); border-radius: var(--radius-sm); border: 1px dashed var(--border-color);">
+          No categories found. Click "+ Add Category" to create one.
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = categories.map(cat => `
+      <div class="category-card" style="border-left: 4px solid ${cat.color};">
+        <div class="category-card-header">
+          <div class="category-card-title-group">
+            <span class="category-card-icon">${cat.icon || '🏷️'}</span>
+            <div style="min-width: 0;">
+              <div class="category-card-title">${escapeHtml(cat.name)}</div>
+              <div class="category-card-color-tag">
+                <span class="category-color-dot" style="background-color: ${cat.color};"></span>
+                <code>${cat.color}</code>
+              </div>
+            </div>
+          </div>
+          <div class="category-card-actions">
+            <button class="btn btn-small btn-secondary" onclick="openEditCategoryModal('${cat.id}')" title="Edit Category" aria-label="Edit">✏️ Edit</button>
+            <button class="btn btn-small btn-danger" onclick="deleteCategoryById('${cat.id}')" title="Delete Category" aria-label="Delete">🗑</button>
+          </div>
+        </div>
+        ${cat.description ? `<p class="category-card-desc">${escapeHtml(cat.description)}</p>` : ''}
+      </div>
+    `).join('');
+  } else if (tbody) {
+    tbody.innerHTML = categories.map(cat => `
+      <tr>
+        <td style="font-size: 18px; text-align: center;">${cat.icon || '🏷️'}</td>
+        <td>
+          <strong style="color: #fff;">${escapeHtml(cat.name)}</strong>
+        </td>
+        <td>
+          <span style="display: inline-block; width: 14px; height: 14px; border-radius: 50%; background-color: ${cat.color}; vertical-align: middle; margin-right: 6px;"></span>
+          <code style="font-size: 11px; color: var(--text-muted);">${cat.color}</code>
+        </td>
+        <td style="color: var(--text-secondary);">${escapeHtml(cat.description || '-')}</td>
+        <td style="text-align: right;">
+          <button class="btn btn-small btn-secondary" onclick="openEditCategoryModal('${cat.id}')">✏️</button>
+          <button class="btn btn-small btn-danger" onclick="deleteCategoryById('${cat.id}')">🗑</button>
+        </td>
+      </tr>
+    `).join('');
+  }
 }
 
 function openAddCategoryModal() {

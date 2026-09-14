@@ -5,21 +5,22 @@ class CategoryManager {
   constructor() {
     this.storageKey = 'churchtech_categories';
     this.defaultCategories = [
-      { id: 'cat-audio', name: 'Audio / FOH', color: '#38bdf8', icon: '🎛️', description: 'Mixers, Dante, microphones, IEMs, amplifiers, speakers, stage boxes' },
-      { id: 'cat-video', name: 'Video & Projection', color: '#818cf8', icon: '📹', description: 'Cameras, ATEM switchers, projectors, displays, SDI/HDMI routing' },
-      { id: 'cat-lighting', name: 'Lighting', color: '#facc15', icon: '💡', description: 'DMX universes, fixtures, lighting consoles, house lights, dimmers' },
-      { id: 'cat-streaming', name: 'Streaming & Broadcast', color: '#f43f5e', icon: '📡', description: 'vMix, OBS, capture cards, encoders, YouTube/Facebook stream feeds' },
-      { id: 'cat-network', name: 'Network & IT', color: '#34d399', icon: '🌐', description: 'Switches, VLANs, subnets, routers, Wi-Fi access points, credentials' },
-      { id: 'cat-presentation', name: 'Presentation & Software', color: '#a78bfa', icon: '💻', description: 'ProPresenter, Companion, confidence monitors, lyrics, NDI graphics' },
-      { id: 'cat-stage', name: 'Stage & Rigging', color: '#fb923c', icon: '🎸', description: 'Patchbays, multicores, power drops, cable runs, truss, drum shields' },
-      { id: 'cat-sop', name: 'Procedures & SOP', color: '#2dd4bf', icon: '📋', description: 'Weekly service startup/shutdown, volunteer operating checklists' },
-      { id: 'cat-general', name: 'General Tech', color: '#94a3b8', icon: '⚙️', description: 'General technical logs, warranties, vendor contacts' }
+      { id: 'cat-network', name: 'Network & IT', color: '#34d399', icon: '🌐', description: 'Switches, VLANs, subnets, routers, Wi-Fi access points, credentials' }
     ];
   }
 
   // Retrieve all categories
   getCategories() {
     try {
+      // Migrate stored categories so that default is trimmed down to Network & IT only
+      const versionKey = 'churchtech_categories_ver';
+      const targetVer = 'v3_network_it_only';
+      if (localStorage.getItem(versionKey) !== targetVer) {
+        this.saveCategories(this.defaultCategories);
+        localStorage.setItem(versionKey, targetVer);
+        return this.defaultCategories;
+      }
+
       const saved = localStorage.getItem(this.storageKey);
       if (saved) {
         const parsed = JSON.parse(saved);
