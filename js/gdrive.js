@@ -95,20 +95,33 @@ class GoogleDriveSync {
       timestamp: new Date().toISOString()
     };
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
+
     try {
       const response = await fetch(webhookUrl, {
         method: 'POST',
+        redirect: 'follow',
         headers: {
           'Content-Type': 'text/plain;charset=utf-8'
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         throw new Error(`Google Apps Script responded with HTTP ${response.status}`);
       }
 
-      const result = await response.json();
+      let result;
+      try {
+        result = await response.json();
+      } catch (jsonErr) {
+        throw new Error('Could not parse Google Apps Script response: ' + jsonErr.message);
+      }
+
       if (!result.success) {
         throw new Error(result.error || 'Failed to create Google Doc in Drive');
       }
@@ -123,8 +136,11 @@ class GoogleDriveSync {
         folderId: result.folderId
       };
     } catch (err) {
+      clearTimeout(timeoutId);
       console.error('Google Drive Upload Error:', err);
-      throw new Error('Google Drive upload failed: ' + err.message);
+      const isAbort = err.name === 'AbortError';
+      const msg = isAbort ? 'Upload timed out after 60s. Please check Google Drive.' : err.message;
+      throw new Error('Google Drive upload failed: ' + msg);
     }
   }
 }

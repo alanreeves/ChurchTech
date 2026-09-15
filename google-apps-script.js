@@ -68,9 +68,18 @@ function doPost(e) {
 
     // Scan folder for existing docs starting with the same title
     let maxNoteNum = 0;
-    const files = targetFolder.getFiles();
+    let files;
+    try {
+      // Targeted fast search for files containing the title prefix
+      const safeSearch = cleanBaseTitle.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+      files = targetFolder.searchFiles("title contains '" + safeSearch + "' and trashed = false");
+    } catch (searchErr) {
+      files = targetFolder.getFiles();
+    }
 
-    while (files.hasNext()) {
+    let scanLimit = 0;
+    while (files.hasNext() && scanLimit < 200) {
+      scanLimit++;
       const file = files.next();
       const fileName = file.getName();
 
@@ -102,8 +111,14 @@ function doPost(e) {
     // 3. Create the brand new Google Doc
     const doc = DocumentApp.create(finalDocTitle);
     const newFile = DriveApp.getFileById(doc.getId());
-    targetFolder.addFile(newFile);
-    DriveApp.getRootFolder().removeFile(newFile);
+    try {
+      newFile.moveTo(targetFolder);
+    } catch (moveErr) {
+      targetFolder.addFile(newFile);
+      try {
+        DriveApp.getRootFolder().removeFile(newFile);
+      } catch (_) {}
+    }
 
     const body = doc.getBody();
     body.clear();

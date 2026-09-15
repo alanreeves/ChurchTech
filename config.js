@@ -6,8 +6,8 @@ const APP_CONFIG = {
   BUILD_DATE: '2026-09-15',
   VERSION_DISPLAY: 'v2.0.0 (build 2026.09.15)',
   DB_NAME: 'ChurchTechDB',
-  DB_VERSION: 2,
-  CACHE_NAME: 'churchtech-cache-v2.0.0-20260915',
+  DB_VERSION: 1,
+  CACHE_NAME: 'churchtech-cache-v2.0.1-20260915',
   CACHE_ASSETS: [
     '/',
     '/index.html',

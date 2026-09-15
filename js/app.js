@@ -86,32 +86,37 @@ async function handleUploadBrainDump() {
     });
 
     if (result && result.success) {
-      // Save to local database
-      const savedNote = await churchTechDB.createNote(title, text);
-      await churchTechDB.markNoteUploaded(
-        savedNote.id,
-        result.docId,
-        result.docUrl,
-        result.title,
-        result.noteNumber
-      );
-
-      // Notification
+      // 1. Show immediate success notification
       showNotification(`✅ Uploaded as "${result.title}" to Google Drive!`, 'success');
 
-      // Clear input fields for next brain dump
+      // 2. Clear input fields for next brain dump immediately
       titleInput.value = '';
       contentInput.value = '';
-      document.getElementById('char-count').textContent = '0 characters';
+      const charCountEl = document.getElementById('char-count');
+      if (charCountEl) charCountEl.textContent = '0 characters';
       activeEditNoteId = null;
       if (statusEl) statusEl.textContent = `Last uploaded: ${result.title}`;
 
-      // Refresh recent list
-      await loadRecentDumps();
-
-      // Offer to open Google Doc
+      // 3. Offer to open Google Doc
       if (result.docUrl) {
         showDocLinkToast(result.title, result.docUrl);
+      }
+
+      // 4. Save to local database (guarded so local storage cannot block upload completion)
+      try {
+        const savedNote = await churchTechDB.createNote(title, text);
+        if (savedNote && savedNote.id) {
+          await churchTechDB.markNoteUploaded(
+            savedNote.id,
+            result.docId,
+            result.docUrl,
+            result.title,
+            result.noteNumber
+          );
+        }
+        await loadRecentDumps();
+      } catch (dbErr) {
+        console.warn('Local history save error (non-fatal):', dbErr);
       }
     }
   } catch (err) {
@@ -121,6 +126,9 @@ async function handleUploadBrainDump() {
   } finally {
     btnUpload.disabled = false;
     btnUpload.innerHTML = '☁️ Upload to Google Drive';
+    if (statusEl && !statusEl.textContent.startsWith('Last uploaded:')) {
+      statusEl.textContent = 'Ready';
+    }
   }
 }
 
