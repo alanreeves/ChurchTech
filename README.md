@@ -65,8 +65,15 @@ Open `http://localhost:8088` in Chrome, Edge, Safari, or Firefox.
 
 ---
 
+## 📚 Technical Documentation
+
+- [Hardware & Network Infrastructure Guide](docs/HARDWARE.md): Master technical reference covering the BT Business Fibre Router, Netgear GS724TP 24-Port PoE Switch, camera/NDI setups, IP addresses, and administration credentials.
+
+---
+
 ## 📱 PWA Installation
 
 1. Open ChurchTech in Chrome, Edge, or Safari on iOS / Android.
 2. Click **Install App** in the header or browser menu ("Add to Home Screen").
 3. Launch ChurchTech Brain Dump as a native offline-capable app on your mobile device or soundboard laptop.
+
