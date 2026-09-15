@@ -24,7 +24,7 @@
 - Configure target Google Drive folder ID in Settings to keep all church tech brain dumps organized in one folder (or a dedicated folder per team).
 
 ### 5. 🔄 Visible Versioning & Update Control
-- Prominently visible version code badge (`v2.0.0 (build 2026.09.15)`).
+- Prominently visible version code badge (`v2.0.2 (build 2026.09.15)`).
 - **"🔄 Force Reload & Update App"** button in Settings: Commands the Service Worker to flush offline caches and load the latest updates immediately.
 
 ---
