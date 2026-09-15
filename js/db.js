@@ -50,6 +50,32 @@ class ChurchTechDB {
 
         request.onerror = () => {
           if (!settled) {
+            // If requested version is less than existing version, fallback to opening existing version directly
+            const err = request.error;
+            if (err && (err.name === 'VersionError' || (err.message && err.message.includes('less than')))) {
+              console.warn('IndexedDB version mismatch; opening existing database version without version parameter.');
+              try {
+                const fallbackReq = indexedDB.open(this.dbName);
+                fallbackReq.onsuccess = () => {
+                  if (!settled) {
+                    settled = true;
+                    clearTimeout(timer);
+                    this.db = fallbackReq.result;
+                    this._setupConnectionListeners(this.db);
+                    resolve(this.db);
+                  }
+                };
+                fallbackReq.onerror = () => {
+                  if (!settled) {
+                    settled = true;
+                    clearTimeout(timer);
+                    reject(new Error('Failed to open IndexedDB: ' + (fallbackReq.error ? fallbackReq.error.message : 'Unknown')));
+                  }
+                };
+                return;
+              } catch (_) {}
+            }
+
             settled = true;
             clearTimeout(timer);
             console.error('Failed to open ChurchTechDB:', request.error);
@@ -62,19 +88,7 @@ class ChurchTechDB {
             settled = true;
             clearTimeout(timer);
             this.db = request.result;
-
-            this.db.onversionchange = () => {
-              console.warn('IndexedDB versionchange triggered; closing connection.');
-              try {
-                this.db.close();
-              } catch (_) {}
-              this.db = null;
-            };
-
-            this.db.onclose = () => {
-              this.db = null;
-            };
-
+            this._setupConnectionListeners(this.db);
             resolve(this.db);
           }
         };
@@ -99,6 +113,21 @@ class ChurchTechDB {
     });
 
     return this._initPromise;
+  }
+
+  // Setup connection event listeners
+  _setupConnectionListeners(dbInstance) {
+    if (!dbInstance) return;
+    dbInstance.onversionchange = () => {
+      console.warn('IndexedDB versionchange triggered; closing connection.');
+      try {
+        dbInstance.close();
+      } catch (_) {}
+      this.db = null;
+    };
+    dbInstance.onclose = () => {
+      this.db = null;
+    };
   }
 
   // Create a new brain dump note

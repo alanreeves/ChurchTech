@@ -11,21 +11,28 @@ document.addEventListener('DOMContentLoaded', async () => {
       verDisplay.textContent = APP_CONFIG.VERSION_DISPLAY;
     }
 
-    // 2. Initialize database
-    await churchTechDB.initDB();
+    // 2. Initialize database (guarded so app functionality is never blocked)
+    try {
+      await churchTechDB.initDB();
+    } catch (dbErr) {
+      console.warn('Initial DB open warning (non-fatal):', dbErr);
+    }
 
     // 3. Setup event listeners
     setupEventListeners();
 
     // 4. Load recent brain dumps history
-    await loadRecentDumps();
+    try {
+      await loadRecentDumps();
+    } catch (dumpsErr) {
+      console.warn('Initial dumps load warning (non-fatal):', dumpsErr);
+    }
 
     // 5. PWA Install handler
     setupPwaInstall();
 
   } catch (err) {
     console.error('App init error:', err);
-    showNotification('Error initializing app: ' + err.message, 'error');
   }
 });
 
