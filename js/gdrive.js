@@ -82,6 +82,11 @@ class GoogleDriveSync {
       throw new Error('Google Drive Webhook is not configured. Please add your Webhook URL in Settings.');
     }
 
+    const webhookUrl = this.getWebhookUrl();
+    if (!webhookUrl) {
+      throw new Error('Google Drive Webhook URL is empty. Please check your Settings.');
+    }
+
     // Determine target folder: Category-specific folder ID -> global default folder ID
     let targetFolderId = this.getFolderId();
     if (note.category && typeof categoryManager !== 'undefined') {
