@@ -612,7 +612,8 @@ async function uploadNoteToGoogleDrive() {
       await churchTechDB.markNoteUploaded(note.id, result.docId, result.docUrl);
       const updatedNote = await churchTechDB.getNote(note.id);
       updateDriveSyncBadge(updatedNote);
-      showNotification(`✅ Successfully uploaded as Google Doc "${result.title}"`, 'success');
+      const actionMsg = result.replaced ? 'Replaced existing Google Doc' : 'Successfully uploaded as Google Doc';
+      showNotification(`✅ ${actionMsg} "${result.title}"`, 'success');
     }
   } catch (err) {
     showNotification('Google Drive Upload Failed: ' + err.message, 'error');

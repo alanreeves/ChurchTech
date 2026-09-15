@@ -226,7 +226,8 @@ async function quickUploadToDrive(event, noteId) {
 
     if (result && result.success) {
       await churchTechDB.markNoteUploaded(note.id, result.docId, result.docUrl);
-      showNotification(`✅ Synced to Google Drive as "${result.title}"`, 'success');
+      const actionMsg = result.replaced ? 'Replaced existing Google Doc' : 'Synced to Google Drive';
+      showNotification(`✅ ${actionMsg} as "${result.title}"`, 'success');
       await loadNotesDisplay();
     }
   } catch (err) {

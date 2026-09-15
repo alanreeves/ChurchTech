@@ -2,12 +2,12 @@
 const APP_CONFIG = {
   APP_NAME: 'ChurchTech',
   TAGLINE: 'AV & Technical Infrastructure Documentation',
-  VERSION: '1.0.6',
+  VERSION: '1.0.7',
   BUILD_DATE: '2026-09-15',
-  VERSION_DISPLAY: 'v1.0.6 (build 2026.09.15)',
+  VERSION_DISPLAY: 'v1.0.7 (build 2026.09.15)',
   DB_NAME: 'ChurchTechDB',
   DB_VERSION: 1,
-  CACHE_NAME: 'churchtech-cache-v1.0.6-20260915',
+  CACHE_NAME: 'churchtech-cache-v1.0.7-20260915',
   CACHE_ASSETS: [
     '/',
     '/index.html',

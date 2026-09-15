@@ -28,6 +28,7 @@ It enables church technicians and volunteers to dictate technical notes via **De
 
 ### 4. ☁️ Google Drive & NotebookLM Integration with Per-Category Folders
 - Direct upload of notes to designated shared Google Drive folders as formatted **native Google Docs**.
+- **Automatic Document Replacement**: When uploading a note that matches an existing document title in the destination folder, ChurchTech replaces the existing document in place (preserving its URL and ID for NotebookLM) rather than creating duplicate files.
 - **Per-Category Google Drive Folder IDs**: Each technical category can route notes to its own specific Google Drive folder (e.g., separate folders for Network, Audio, Video), with a global fallback folder setting.
 - Ready for immediate indexing and querying in **Google's NotebookLM**.
 - Uses a lightweight **Google Apps Script Webhook**—no Google Cloud Console project or OAuth verification required.
@@ -38,7 +39,7 @@ It enables church technicians and volunteers to dictate technical notes via **De
 - **Export Categories & Prompts to Local File** (`.json`) and **Import/Reload from Local File** right from Settings.
 
 ### 6. 🔄 Visible Versioning & Service Worker Update Control
-- Prominently visible version code badge on the home page, editor, and settings (`v1.0.6 (build 2026.09.15)`).
+- Prominently visible version code badge on the home page, editor, and settings (`v1.0.7 (build 2026.09.15)`).
 - **"🔄 Force Reload & Update App"** button in Settings: Commands the Service Worker to flush offline caches, skip waiting, and reload to the freshest deployment.
 - **💾 Save & Export Settings to Local File**: The Save & Export button in the Maintenance & Privacy section saves configuration to browser storage and exports all settings into a local JSON file (including Deepgram and OpenAI keys, models, and categories with their prompts and folder IDs).
 - **Silent Operation**: Zero audio chimes or background microphone device activations when navigating pages.

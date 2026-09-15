@@ -64,8 +64,36 @@ function doPost(e) {
       }
     }
 
-    // 2. Create the native Google Doc
-    const doc = DocumentApp.create(title);
+    // 2. Determine or replace existing Google Doc in target folder
+    let doc = null;
+    let isReplaced = false;
+    const existingDocs = targetFolder.getFilesByName(title);
+
+    while (existingDocs.hasNext()) {
+      const existingDocFile = existingDocs.next();
+      if (!doc) {
+        try {
+          // Attempt to open and reuse the existing Google Doc to replace its contents in place
+          doc = DocumentApp.openById(existingDocFile.getId());
+          isReplaced = true;
+        } catch (openErr) {
+          // If not an editable Google Doc, move to trash so new one replaces it
+          existingDocFile.setTrashed(true);
+        }
+      } else {
+        // Trash any duplicate files with the same name in this folder
+        existingDocFile.setTrashed(true);
+      }
+    }
+
+    // If no existing Google Doc was found in the folder, create a new one
+    if (!doc) {
+      doc = DocumentApp.create(title);
+      const newFile = DriveApp.getFileById(doc.getId());
+      targetFolder.addFile(newFile);
+      DriveApp.getRootFolder().removeFile(newFile);
+    }
+
     const body = doc.getBody();
     body.clear();
 
@@ -102,7 +130,11 @@ function doPost(e) {
           inlineImg.setHeight(Math.round(origHeight * scale));
         }
 
-        // B. Save photo file into target Google Drive folder
+        // B. Replace any previous photo with the same name in targetFolder, then save new photo
+        const existingPhotos = targetFolder.getFilesByName(imgName);
+        while (existingPhotos.hasNext()) {
+          existingPhotos.next().setTrashed(true);
+        }
         const driveImageFile = targetFolder.createFile(imgBlob);
         
         // C. Insert link below image in Google Doc
@@ -164,16 +196,12 @@ function doPost(e) {
 
     doc.saveAndClose();
 
-    // 3. Move file into destination folder
-    const file = DriveApp.getFileById(doc.getId());
-    targetFolder.addFile(file);
-    DriveApp.getRootFolder().removeFile(file);
-
     return ContentService.createTextOutput(JSON.stringify({
       success: true,
       docId: doc.getId(),
       docUrl: doc.getUrl(),
       title: doc.getName(),
+      replaced: isReplaced,
       folderName: targetFolder.getName(),
       folderId: targetFolder.getId()
     })).setMimeType(ContentService.MimeType.JSON);

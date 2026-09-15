@@ -129,6 +129,7 @@ class GoogleDriveSync {
         docId: result.docId,
         docUrl: result.docUrl,
         title: result.title,
+        replaced: Boolean(result.replaced),
         folderName: result.folderName || 'Google Drive',
         folderId: result.folderId
       };
