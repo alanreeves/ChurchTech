@@ -91,21 +91,31 @@ function markdownToHtml(md) {
   return html;
 }
 
-// Convert HTML to clean markdown for export
+// Convert HTML to clean markdown for export & Google Drive sync
 function htmlToMarkdown(html) {
   if (!html) return '';
   return html
-    .replace(/<h1>(.*?)<\/h1>/gi, '# $1\n\n')
-    .replace(/<h2>(.*?)<\/h2>/gi, '## $1\n\n')
-    .replace(/<h3>(.*?)<\/h3>/gi, '### $1\n\n')
+    .replace(/<h1\b[^>]*>(.*?)<\/h1>/gi, '# $1\n\n')
+    .replace(/<h2\b[^>]*>(.*?)<\/h2>/gi, '## $1\n\n')
+    .replace(/<h3\b[^>]*>(.*?)<\/h3>/gi, '### $1\n\n')
+    .replace(/<h4\b[^>]*>(.*?)<\/h4>/gi, '#### $1\n\n')
     .replace(/<strong>(.*?)<\/strong>/gi, '**$1**')
     .replace(/<b>(.*?)<\/b>/gi, '**$1**')
     .replace(/<em>(.*?)<\/em>/gi, '*$1*')
     .replace(/<i>(.*?)<\/i>/gi, '*$1*')
+    .replace(/<code>(.*?)<\/code>/gi, '`$1`')
+    .replace(/<hr\b[^>]*>/gi, '\n---\n')
     .replace(/<li>(.*?)<\/li>/gi, '- $1\n')
     .replace(/<br\s*[\/]?>/gi, '\n')
     .replace(/<p>(.*?)<\/p>/gi, '$1\n\n')
+    .replace(/<div\b[^>]*>/gi, '')
+    .replace(/<\/div>/gi, '\n')
     .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
     .trim();
 }
 

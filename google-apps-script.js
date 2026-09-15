@@ -163,36 +163,8 @@ function doPost(e) {
 
     body.appendHorizontalRule();
 
-    // Parse content lines and insert formatted paragraphs
-    // Handles HTML tags or Markdown-style text
-    const cleanText = convertHtmlToCleanText(content);
-    const lines = cleanText.split('\n');
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line) {
-        body.appendParagraph('');
-        continue;
-      }
-
-      if (line.startsWith('# ')) {
-        const p = body.appendParagraph(line.substring(2));
-        p.setHeading(DocumentApp.ParagraphHeading.HEADING1);
-      } else if (line.startsWith('## ')) {
-        const p = body.appendParagraph(line.substring(3));
-        p.setHeading(DocumentApp.ParagraphHeading.HEADING2);
-      } else if (line.startsWith('### ')) {
-        const p = body.appendParagraph(line.substring(4));
-        p.setHeading(DocumentApp.ParagraphHeading.HEADING3);
-      } else if (line.startsWith('- ') || line.startsWith('* ')) {
-        body.appendListItem(line.substring(2));
-      } else if (/^\d+\.\s/.test(line)) {
-        const itemText = line.replace(/^\d+\.\s/, '');
-        body.appendListItem(itemText);
-      } else {
-        body.appendParagraph(line);
-      }
-    }
+    // Parse content lines and insert formatted paragraphs, headings, lists, tables, and bold styles
+    parseMarkdownIntoDoc(body, content);
 
     doc.saveAndClose();
 
@@ -214,15 +186,262 @@ function doPost(e) {
   }
 }
 
-// Helper to strip HTML tags while maintaining newlines
-function convertHtmlToCleanText(html) {
+// ============ MARKDOWN & RICH TEXT TO GOOGLE DOCS PARSER ============
+
+function parseMarkdownIntoDoc(body, rawContent) {
+  if (!rawContent) return;
+
+  // 1. Normalize HTML tags into markdown equivalents
+  const markdownText = convertHtmlToMarkdown(rawContent);
+  const lines = markdownText.split('\n');
+
+  let i = 0;
+  let lastWasEmpty = false;
+
+  while (i < lines.length) {
+    const line = lines[i].trim();
+
+    if (!line) {
+      if (!lastWasEmpty) {
+        body.appendParagraph('');
+        lastWasEmpty = true;
+      }
+      i++;
+      continue;
+    }
+    lastWasEmpty = false;
+
+    // A. Markdown Tables: Lines starting and ending with '|'
+    if (line.startsWith('|') && line.endsWith('|')) {
+      const tableRows = [];
+      while (i < lines.length && lines[i].trim().startsWith('|') && lines[i].trim().endsWith('|')) {
+        const rowLine = lines[i].trim();
+        // Skip separator rows like |---|---|
+        if (!/^\|[\s\-:|]+\|$/.test(rowLine)) {
+          const cells = rowLine
+            .slice(1, -1)
+            .split('|')
+            .map(function(c) { return c.trim(); });
+          tableRows.push(cells);
+        }
+        i++;
+      }
+
+      if (tableRows.length > 0) {
+        try {
+          const table = body.appendTable();
+          for (let r = 0; r < tableRows.length; r++) {
+            const rowData = tableRows[r];
+            const tableRow = table.appendTableRow();
+            for (let c = 0; c < rowData.length; c++) {
+              const cell = tableRow.appendTableCell();
+              formatElementText(cell, rowData[c]);
+              if (r === 0) {
+                cell.setBackgroundColor('#f1f5f9');
+                try {
+                  cell.editAsText().setBold(true);
+                } catch (_) {}
+              }
+            }
+          }
+          body.appendParagraph(''); // Spacing after table
+        } catch (tableErr) {
+          // Fallback if table construction fails
+          for (let r = 0; r < tableRows.length; r++) {
+            body.appendParagraph(tableRows[r].join(' | '));
+          }
+        }
+      }
+      continue;
+    }
+
+    // B. Horizontal Rules: ---, ***, ___
+    if (/^(---|---|\*\*\*|___)$/.test(line)) {
+      body.appendHorizontalRule();
+      i++;
+      continue;
+    }
+
+    // C. Headings (# H1, ## H2, ### H3, #### H4)
+    if (line.startsWith('# ')) {
+      const p = body.appendParagraph('');
+      formatElementText(p, line.substring(2).trim());
+      p.setHeading(DocumentApp.ParagraphHeading.HEADING1);
+      i++;
+      continue;
+    }
+    if (line.startsWith('## ')) {
+      const p = body.appendParagraph('');
+      formatElementText(p, line.substring(3).trim());
+      p.setHeading(DocumentApp.ParagraphHeading.HEADING2);
+      i++;
+      continue;
+    }
+    if (line.startsWith('### ')) {
+      const p = body.appendParagraph('');
+      formatElementText(p, line.substring(4).trim());
+      p.setHeading(DocumentApp.ParagraphHeading.HEADING3);
+      i++;
+      continue;
+    }
+    if (line.startsWith('#### ')) {
+      const p = body.appendParagraph('');
+      formatElementText(p, line.substring(5).trim());
+      p.setHeading(DocumentApp.ParagraphHeading.HEADING4);
+      i++;
+      continue;
+    }
+
+    // D. Bullet List Items (- , * , + , • )
+    if (/^([-*+•])\s+/.test(line)) {
+      const itemText = line.replace(/^([-*+•])\s+/, '').trim();
+      const item = body.appendListItem('');
+      item.setGlyphType(DocumentApp.GlyphType.BULLET);
+      formatElementText(item, itemText);
+      i++;
+      continue;
+    }
+
+    // E. Numbered List Items (1. , 2. , etc.)
+    if (/^\d+\.\s+/.test(line)) {
+      const itemText = line.replace(/^\d+\.\s+/, '').trim();
+      const item = body.appendListItem('');
+      item.setGlyphType(DocumentApp.GlyphType.NUMBER);
+      formatElementText(item, itemText);
+      i++;
+      continue;
+    }
+
+    // F. Blockquote (> quote)
+    if (line.startsWith('> ')) {
+      const p = body.appendParagraph('');
+      formatElementText(p, line.substring(2).trim());
+      p.setIndentStart(24);
+      p.setItalic(true);
+      p.setForegroundColor('#475569');
+      i++;
+      continue;
+    }
+
+    // G. Standard Paragraph
+    const p = body.appendParagraph('');
+    formatElementText(p, line);
+    i++;
+  }
+}
+
+// Formats inline markdown styles (**bold**, *italic*, `code`) into native Google Doc text styling
+function formatElementText(element, rawText) {
+  if (!rawText) {
+    element.setText('');
+    return;
+  }
+
+  const tokens = tokenizeMarkdownText(rawText);
+  if (tokens.length === 0) {
+    element.setText('');
+    return;
+  }
+
+  // Set the clean text without markdown tokens
+  const plainText = tokens.map(function(t) { return t.text; }).join('');
+  element.setText(plainText);
+
+  // Apply bold, italic, and monospace styling to specific ranges
+  const textObj = element.editAsText();
+  let currentOffset = 0;
+
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    const len = t.text.length;
+    if (len > 0) {
+      const start = currentOffset;
+      const end = currentOffset + len - 1;
+
+      if (t.bold) {
+        textObj.setBold(start, end, true);
+      }
+      if (t.italic) {
+        textObj.setItalic(start, end, true);
+      }
+      if (t.monospace) {
+        textObj.setFontFamily(start, end, 'Courier New');
+      }
+
+      currentOffset += len;
+    }
+  }
+}
+
+// Tokenizes inline markdown string into segments with style flags
+function tokenizeMarkdownText(str) {
+  if (!str) return [];
+
+  // Normalize HTML inline formatting if present
+  str = str
+    .replace(/<strong>(.*?)<\/strong>/gi, '**$1**')
+    .replace(/<b>(.*?)<\/b>/gi, '**$1**')
+    .replace(/<em>(.*?)<\/em>/gi, '*$1*')
+    .replace(/<i>(.*?)<\/i>/gi, '*$1*')
+    .replace(/<code>(.*?)<\/code>/gi, '`$1`');
+
+  const tokens = [];
+  const regex = /(\*\*\*.*?\*\*\*|\*\*.*?\*\*|\*.*?\*|`.*?`)/g;
+  let lastIndex = 0;
+  let match;
+
+  while ((match = regex.exec(str)) !== null) {
+    if (match.index > lastIndex) {
+      tokens.push({
+        text: str.substring(lastIndex, match.index),
+        bold: false,
+        italic: false
+      });
+    }
+
+    const tokenStr = match[0];
+    if (tokenStr.startsWith('***') && tokenStr.endsWith('***')) {
+      tokens.push({ text: tokenStr.slice(3, -3), bold: true, italic: true });
+    } else if (tokenStr.startsWith('**') && tokenStr.endsWith('**')) {
+      tokens.push({ text: tokenStr.slice(2, -2), bold: true, italic: false });
+    } else if (tokenStr.startsWith('*') && tokenStr.endsWith('*')) {
+      tokens.push({ text: tokenStr.slice(1, -1), bold: false, italic: true });
+    } else if (tokenStr.startsWith('`') && tokenStr.endsWith('`')) {
+      tokens.push({ text: tokenStr.slice(1, -1), bold: false, italic: false, monospace: true });
+    }
+
+    lastIndex = regex.lastIndex;
+  }
+
+  if (lastIndex < str.length) {
+    tokens.push({
+      text: str.substring(lastIndex),
+      bold: false,
+      italic: false
+    });
+  }
+
+  return tokens;
+}
+
+// Helper to convert rich HTML tags into clean markdown syntax
+function convertHtmlToMarkdown(html) {
   if (!html) return '';
+
   return html
+    .replace(/<h1\b[^>]*>(.*?)<\/h1>/gi, '# $1\n\n')
+    .replace(/<h2\b[^>]*>(.*?)<\/h2>/gi, '## $1\n\n')
+    .replace(/<h3\b[^>]*>(.*?)<\/h3>/gi, '### $1\n\n')
+    .replace(/<h4\b[^>]*>(.*?)<\/h4>/gi, '#### $1\n\n')
+    .replace(/<strong>(.*?)<\/strong>/gi, '**$1**')
+    .replace(/<b>(.*?)<\/b>/gi, '**$1**')
+    .replace(/<em>(.*?)<\/em>/gi, '*$1*')
+    .replace(/<i>(.*?)<\/i>/gi, '*$1*')
+    .replace(/<code>(.*?)<\/code>/gi, '`$1`')
+    .replace(/<hr\b[^>]*>/gi, '\n---\n')
+    .replace(/<li>(.*?)<\/li>/gi, '- $1\n')
     .replace(/<br\s*[\/]?>/gi, '\n')
     .replace(/<\/p>/gi, '\n\n')
-    .replace(/<\/h[1-6]>/gi, '\n\n')
-    .replace(/<li>/gi, '• ')
-    .replace(/<\/li>/gi, '\n')
     .replace(/<div\b[^>]*>/gi, '')
     .replace(/<\/div>/gi, '\n')
     .replace(/<[^>]+>/g, '')

@@ -96,9 +96,13 @@ class GoogleDriveSync {
       }
     }
 
+    const markdownContent = (typeof htmlToMarkdown === 'function')
+      ? htmlToMarkdown(note.text || '')
+      : (note.text || '');
+
     const payload = {
       title: note.title,
-      content: note.text || '',
+      content: markdownContent,
       category: note.category || 'General',
       tags: Array.isArray(note.tags) ? note.tags : [],
       folderId: targetFolderId,

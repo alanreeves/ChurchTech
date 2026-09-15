@@ -13,26 +13,35 @@ class CategoryManager {
         description: 'Switches, VLANs, subnets, routers, Wi-Fi access points, credentials',
         folderId: '',
         prompt: `You are a Church IT & Systems Administrator.
-Convert the following technical notes into a standardized Network & Software Infrastructure Record.
+Convert the following technical notes into a standardized Network & Infrastructure Record.
 
-Format using Markdown:
-# Network & Software Configuration: [Subsystem Name]
+Format strictly using Markdown with clear headings (##, ###), bulleted lists with bold lead-ins, and tables:
 
-### 1. Network Architecture
-- **Subnet / VLAN**: (e.g. VLAN 10 - AV Production, VLAN 20 - Dante Audio, VLAN 30 - Church Staff)
-- **Gateway & DNS**:
-- **Managed Switch Ports**:
+## [Subsystem or Equipment Name]
 
-### 2. Device IP Table
-| Device Name | Location | IP Address | MAC Address | Role |
+### 1. Network Architecture & VLANs
+- **Subnet / IP Range:** (e.g. 192.168.10.0/24)
+- **VLAN ID & Name:** (e.g. VLAN 10 - AV Production, VLAN 20 - Dante Audio, VLAN 30 - Staff)
+- **Default Gateway & DNS:** 
+- **Managed Switch & Port Assignments:** (e.g. Cisco SG350 Port 12 - FOH Dante Primary)
+
+### 2. Connected Devices & IP Directory
+| Device Name | Location / Rack | IP Address | MAC Address | Function / Role |
 |---|---|---|---|---|
-(Extract all devices mentioned into the table)
+(Extract all devices, access points, switch ports, and consoles into this table)
 
-### 3. Software Applications & Versions
-List software mentioned (e.g. ProPresenter, vMix, Companion, ATEM Software Control, Dante Controller, Q-SYS Designer) with versions, license notes, and config files.
+### 3. Software Applications, Versions & Show Files
+- **Application & Version:** (e.g. ProPresenter 7.16, vMix 27, Companion 3.2, Dante Controller)
+- **Configuration Files / Backups:** (Location of presets, show files, profiles)
 
-### 4. Access & Credentials Notes
-System logins, Web GUI addresses, and default passwords (keep safe for authorized technicians).`
+### 4. Step-by-Step Configuration & Troubleshooting
+1. **[Step 1]:** (Clear, sequential instructions or troubleshooting procedures)
+2. **[Step 2]:** 
+
+### 5. Access Credentials & Management Portals
+- **Web GUI / Admin Portal:** (e.g. http://192.168.10.1:8080)
+- **Default Login / Role:** (Authorized technician accounts)
+- **Important Maintenance Warnings:** (Critical cautions, reboot sequences, or gotchas)`
       }
     ];
   }
@@ -40,10 +49,13 @@ System logins, Web GUI addresses, and default passwords (keep safe for authorize
   // Get generic fallback prompt
   getDefaultPrompt() {
     return `You are an expert Church AV & Technical Systems Engineer.
-Convert the following technical notes into a clear, structured technical document:
-- Remove speech fillers, repetitions, and spoken disfluencies.
-- Format into clear Markdown sections, tables, and bullet points.
-- Strictly preserve all technical equipment names, model numbers, cable types, port assignments, and settings.
+Convert the following technical notes into a clear, beautifully structured engineering record:
+- Structure with clear Markdown subheadings (## and ###) for distinct sections.
+- Use bullet points with **bold lead-ins** (e.g. - **Equipment Model:** Shure ULXD4D, - **Signal Flow:** Stage Box > FOH Console > Amp Rack).
+- Use numbered lists (1. **Step:** ...) for sequential procedures or troubleshooting steps.
+- Use Markdown tables (| Device | Port | Function |) for multi-column equipment or port mappings.
+- Emphasize critical parameters, labels, IP addresses, and switch ports in **bold**.
+- Remove speech fillers, repetitions, and spoken disfluencies while strictly preserving all technical details.
 - Maintain a factual, professional engineering tone.`;
   }
 
