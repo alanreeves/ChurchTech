@@ -1,337 +1,294 @@
-// ChurchTech - Main Application Dashboard Logic
+// ChurchTech Brain Dump - Application Controller
+// Manages fast brain dumps, instant Google Drive sync, and local history
 
-let allNotes = [];
-let selectedCategoryFilter = 'all';
-let currentSearchQuery = '';
+let activeEditNoteId = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
   try {
-    // 1. Set visible version display badge
-    const versionDisplay = document.getElementById('version-display');
-    if (versionDisplay) {
-      versionDisplay.textContent = APP_CONFIG.VERSION_DISPLAY;
+    // 1. Version display
+    const verDisplay = document.getElementById('version-display');
+    if (verDisplay) {
+      verDisplay.textContent = APP_CONFIG.VERSION_DISPLAY;
     }
 
-    // 2. Initialize DB & Categories
+    // 2. Initialize database
     await churchTechDB.initDB();
-    renderCategoryFilterBar();
 
-    // 3. Load notes
-    await loadNotesDisplay();
+    // 3. Setup event listeners
+    setupEventListeners();
 
-    // 4. Setup search & PWA install
-    setupSearchListener();
-    registerServiceWorker();
+    // 4. Load recent brain dumps history
+    await loadRecentDumps();
 
-  } catch (error) {
-    console.error('App initialization error:', error);
-    showNotification('Initialization error: ' + error.message, 'error');
+    // 5. PWA Install handler
+    setupPwaInstall();
+
+  } catch (err) {
+    console.error('App init error:', err);
+    showNotification('Error initializing app: ' + err.message, 'error');
   }
 });
 
-// Render Category Filter Pills Bar
-function renderCategoryFilterBar() {
-  const container = document.getElementById('category-filter-bar');
-  if (!container) return;
+function setupEventListeners() {
+  const titleInput = document.getElementById('note-title');
+  const contentInput = document.getElementById('note-content');
+  const charCount = document.getElementById('char-count');
 
-  const categories = categoryManager.getCategories();
-  
-  let html = `
-    <button class="category-filter-pill ${selectedCategoryFilter === 'all' ? 'active' : ''}" 
-            onclick="setCategoryFilter('all')">
-      <span>🌐</span> All Notes
-    </button>
-  `;
-
-  categories.forEach(cat => {
-    const isActive = selectedCategoryFilter === cat.name;
-    html += `
-      <button class="category-filter-pill ${isActive ? 'active' : ''}" 
-              onclick="setCategoryFilter('${escapeHtml(cat.name)}')">
-        <span>${cat.icon || '🏷️'}</span> ${escapeHtml(cat.name)}
-      </button>
-    `;
-  });
-
-  container.innerHTML = html;
-}
-
-// Set category filter
-function setCategoryFilter(categoryName) {
-  selectedCategoryFilter = categoryName;
-  renderCategoryFilterBar();
-  renderFilteredNotes();
-}
-
-// Setup search bar listener
-function setupSearchListener() {
-  const input = document.getElementById('search-input');
-  if (!input) return;
-
-  input.addEventListener('input', (e) => {
-    currentSearchQuery = e.target.value.trim().toLowerCase();
-    renderFilteredNotes();
-  });
-}
-
-// Load all notes from database
-async function loadNotesDisplay() {
-  try {
-    allNotes = await churchTechDB.getAllNotes();
-    renderFilteredNotes();
-  } catch (err) {
-    console.error('Error loading notes:', err);
-    showNotification('Error loading notes: ' + err.message, 'error');
-  }
-}
-
-// Filter and render notes
-function renderFilteredNotes() {
-  const container = document.getElementById('notes-grid');
-  const stats = document.getElementById('notes-stats');
-  if (!container) return;
-
-  let filtered = allNotes;
-
-  // Category filter
-  if (selectedCategoryFilter !== 'all') {
-    filtered = filtered.filter(n => (n.category || 'General') === selectedCategoryFilter);
-  }
-
-  // Search filter
-  if (currentSearchQuery) {
-    filtered = filtered.filter(n => {
-      const titleMatch = (n.title || '').toLowerCase().includes(currentSearchQuery);
-      const textMatch = (n.text || '').toLowerCase().includes(currentSearchQuery);
-      const categoryMatch = (n.category || '').toLowerCase().includes(currentSearchQuery);
-      return titleMatch || textMatch || categoryMatch;
+  if (contentInput && charCount) {
+    contentInput.addEventListener('input', () => {
+      charCount.textContent = `${contentInput.value.length} characters`;
     });
   }
 
-  // Update stats
-  if (stats) {
-    const driveCount = allNotes.filter(n => n.gdriveDocId).length;
-    stats.textContent = `${filtered.length} of ${allNotes.length} notes (${driveCount} synced to Google Drive)`;
-  }
+  // Ctrl+Enter or Cmd+Enter to upload
+  window.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      handleUploadBrainDump();
+    }
+  });
+}
 
-  // Empty state
-  if (filtered.length === 0) {
-    container.innerHTML = `
-      <div style="grid-column: 1 / -1; padding: 60px 20px; text-align: center; background: var(--bg-card); border-radius: var(--radius-md); border: 1px dashed var(--border-color);">
-        <p style="font-size: 28px; margin-bottom: 8px;">🎛️</p>
-        <p style="font-size: 16px; color: #fff; font-weight: 600; margin-bottom: 6px;">No technical notes found</p>
-        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">
-          ${allNotes.length === 0 ? 'Start documenting your church audio, visual, and IT setup.' : 'Try clearing your search or category filter.'}
-        </p>
-        <button onclick="navigateToEditor()" class="btn btn-primary">+ Create New Technical Note</button>
-      </div>
-    `;
+// Upload Brain Dump to Google Drive
+async function handleUploadBrainDump() {
+  const titleInput = document.getElementById('note-title');
+  const contentInput = document.getElementById('note-content');
+  const btnUpload = document.getElementById('btn-upload');
+  const statusEl = document.getElementById('upload-status');
+
+  const title = (titleInput.value || '').trim();
+  const text = (contentInput.value || '').trim();
+
+  if (!title) {
+    showNotification('Please enter a title for your brain dump (e.g. "BT Business Router")', 'warning');
+    titleInput.focus();
     return;
   }
 
-  // Render cards
-  container.innerHTML = filtered.map(note => {
-    const categoryObj = categoryManager.getCategories().find(c => c.name === note.category) || { color: '#6366f1', icon: '🏷️' };
-    
-    // Google Drive status badge
-    let driveBadgeHtml = '';
-    if (note.gdriveDocId && note.gdriveDocUrl) {
-      driveBadgeHtml = `
-        <a href="${note.gdriveDocUrl}" target="_blank" class="drive-badge drive-badge-synced" onclick="event.stopPropagation()" title="Open Google Doc in Google Drive">
-          <span>☁️</span> Synced to Drive ↗
-        </a>
-      `;
-    } else {
-      driveBadgeHtml = `
-        <span class="drive-badge drive-badge-unsynced" title="Not yet uploaded to Google Drive">
-          <span>☁️</span> Local Only
-        </span>
-      `;
+  if (!googleDriveSync.isConfigured()) {
+    showNotification('Google Apps Script Webhook is not configured. Please add your URL in Settings.', 'warning');
+    setTimeout(() => {
+      navigateToSettings();
+    }, 1200);
+    return;
+  }
+
+  btnUpload.disabled = true;
+  btnUpload.innerHTML = '⏳ Checking & Uploading to Drive...';
+  if (statusEl) statusEl.textContent = 'Uploading to Google Drive...';
+
+  try {
+    showNotification('Checking existing files and uploading to Google Drive...', 'info');
+
+    const result = await googleDriveSync.uploadNoteAsGoogleDoc({
+      title: title,
+      text: text
+    });
+
+    if (result && result.success) {
+      // Save to local database
+      const savedNote = await churchTechDB.createNote(title, text);
+      await churchTechDB.markNoteUploaded(
+        savedNote.id,
+        result.docId,
+        result.docUrl,
+        result.title,
+        result.noteNumber
+      );
+
+      // Notification
+      showNotification(`✅ Uploaded as "${result.title}" to Google Drive!`, 'success');
+
+      // Clear input fields for next brain dump
+      titleInput.value = '';
+      contentInput.value = '';
+      document.getElementById('char-count').textContent = '0 characters';
+      activeEditNoteId = null;
+      if (statusEl) statusEl.textContent = `Last uploaded: ${result.title}`;
+
+      // Refresh recent list
+      await loadRecentDumps();
+
+      // Offer to open Google Doc
+      if (result.docUrl) {
+        showDocLinkToast(result.title, result.docUrl);
+      }
     }
-
-    return `
-      <div class="note-card" onclick="navigateToEditor('${note.id}')">
-        <div class="note-card-header">
-          <div class="note-card-badges">
-            <span class="cat-badge" style="border-color: ${categoryObj.color}40; color: ${categoryObj.color}">
-              ${categoryObj.icon || '🏷️'} ${escapeHtml(note.category || 'General')}
-            </span>
-            ${note.photo && note.photo.data ? `<span class="photo-badge" title="Photo attached">📷 Photo</span>` : ''}
-            ${driveBadgeHtml}
-          </div>
-          <h3 class="note-title">${escapeHtml(note.title)}</h3>
-          <div class="note-preview">${sanitizePreview(note.text)}</div>
-        </div>
-
-        <div class="note-card-footer">
-          <span>${formatDate(note.updatedAt)}</span>
-          <div class="note-actions">
-            ${!note.gdriveDocId ? `
-              <button class="btn btn-small btn-secondary" onclick="quickUploadToDrive(event, '${note.id}')" title="Upload directly to Google Drive">
-                ☁️ Upload
-              </button>
-            ` : ''}
-            <button class="btn btn-small btn-danger" onclick="deleteNoteWithConfirm(event, '${note.id}')" title="Delete note">
-              🗑
-            </button>
-          </div>
-        </div>
-      </div>
-    `;
-  }).join('');
-}
-
-// Navigate to editor
-function navigateToEditor(noteId = null) {
-  if (noteId) {
-    window.location.href = `editor.html?id=${encodeURIComponent(noteId)}`;
-  } else {
-    window.location.href = 'editor.html';
+  } catch (err) {
+    console.error('Upload failed:', err);
+    showNotification('Upload Failed: ' + err.message, 'error');
+    if (statusEl) statusEl.textContent = 'Upload failed: ' + err.message;
+  } finally {
+    btnUpload.disabled = false;
+    btnUpload.innerHTML = '☁️ Upload to Google Drive';
   }
 }
 
-// Navigate to settings
+function handleClearForm() {
+  const titleInput = document.getElementById('note-title');
+  const contentInput = document.getElementById('note-content');
+  const charCount = document.getElementById('char-count');
+
+  if (titleInput.value || contentInput.value) {
+    if (confirm('Clear current title and notes?')) {
+      titleInput.value = '';
+      contentInput.value = '';
+      if (charCount) charCount.textContent = '0 characters';
+      activeEditNoteId = null;
+      titleInput.focus();
+    }
+  } else {
+    titleInput.focus();
+  }
+}
+
+// Load Recent Brain Dumps into history list
+async function loadRecentDumps() {
+  const container = document.getElementById('recent-dumps-list');
+  const countBadge = document.getElementById('recent-count');
+  if (!container) return;
+
+  try {
+    const notes = await churchTechDB.getAllNotes();
+    if (countBadge) {
+      countBadge.textContent = `${notes.length} saved`;
+    }
+
+    if (notes.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state-box">
+          <span style="font-size: 32px; display: block; margin-bottom: 8px;">💡</span>
+          <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 4px;">No brain dumps recorded yet</p>
+          <p style="font-size: 12px; color: var(--text-muted);">Enter a title and details above, then tap "Upload to Google Drive".</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = notes.map(note => {
+      const displayTitle = note.gdriveDocTitle || note.title;
+      const timeStr = note.createdAt ? new Date(note.createdAt).toLocaleString() : '';
+      const textPreview = (note.text || '').trim();
+      const snippet = textPreview ? escapeHtml(textPreview.slice(0, 140)) + (textPreview.length > 140 ? '...' : '') : '<em>No text</em>';
+      const noteNumStr = note.noteNumber ? `Note #${String(note.noteNumber).padStart(3, '0')}` : '';
+
+      return `
+        <div class="recent-dump-card">
+          <div class="recent-dump-card-header">
+            <div class="recent-dump-title-group">
+              <span class="recent-dump-icon">📄</span>
+              <strong class="recent-dump-title">${escapeHtml(displayTitle)}</strong>
+              ${noteNumStr ? `<span class="recent-dump-num-badge">${noteNumStr}</span>` : ''}
+            </div>
+            <span class="recent-dump-date">${timeStr}</span>
+          </div>
+
+          <div class="recent-dump-snippet">${snippet}</div>
+
+          <div class="recent-dump-card-actions">
+            ${note.gdriveDocUrl ? `
+              <a href="${escapeHtml(note.gdriveDocUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-small btn-primary" style="text-decoration: none;">
+                Open in Google Docs ↗
+              </a>
+            ` : ''}
+            <button type="button" class="btn btn-small btn-secondary" onclick="loadDumpIntoEditor('${note.id}')" title="Load into editor to review or add more">
+              ✏️ Re-load
+            </button>
+            <button type="button" class="btn btn-small btn-danger" onclick="deleteRecentDump('${note.id}')" title="Delete from local list">
+              🗑️ Delete
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+  } catch (err) {
+    console.error('Error loading recent dumps:', err);
+  }
+}
+
+// Load a past brain dump back into the editor
+async function loadDumpIntoEditor(id) {
+  try {
+    const note = await churchTechDB.getNote(id);
+    if (!note) return;
+
+    const titleInput = document.getElementById('note-title');
+    const contentInput = document.getElementById('note-content');
+    const charCount = document.getElementById('char-count');
+
+    titleInput.value = note.title;
+    contentInput.value = note.text || '';
+    if (charCount) charCount.textContent = `${(note.text || '').length} characters`;
+
+    activeEditNoteId = note.id;
+
+    // Scroll up to editor
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    showNotification(`Loaded "${note.title}" into editor`, 'info');
+  } catch (err) {
+    showNotification('Error loading note: ' + err.message, 'error');
+  }
+}
+
+// Delete recent dump
+async function deleteRecentDump(id) {
+  if (confirm('Delete this brain dump from local history? (The document in Google Drive will remain safe)')) {
+    try {
+      await churchTechDB.deleteNote(id);
+      showNotification('Removed from local history', 'info');
+      await loadRecentDumps();
+    } catch (err) {
+      showNotification('Error deleting: ' + err.message, 'error');
+    }
+  }
+}
+
+// Toast with direct clickable Google Doc link
+function showDocLinkToast(title, url) {
+  const container = document.getElementById('notification-container') || createNotificationContainer();
+  const notif = document.createElement('div');
+  notif.className = 'notification notification-success';
+  notif.innerHTML = `
+    <span>📄 <strong>${escapeHtml(title)}</strong> is ready in Google Drive!</span>
+    <a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" style="color: #38bdf8; font-weight: 700; margin-left: 8px; text-decoration: underline;">Open Google Doc ↗</a>
+    <button class="notification-close" onclick="this.parentElement.remove()">✕</button>
+  `;
+  container.appendChild(notif);
+  setTimeout(() => {
+    if (notif.parentElement) notif.remove();
+  }, 10000);
+}
+
+// Navigation
 function navigateToSettings() {
   window.location.href = 'settings.html';
 }
 
-// Delete note with confirmation
-async function deleteNoteWithConfirm(event, noteId) {
-  event.stopPropagation();
-  if (confirm('Are you sure you want to delete this technical note? This action cannot be undone.')) {
-    try {
-      await churchTechDB.deleteNote(noteId);
-      showNotification('Note deleted successfully', 'success');
-      await loadNotesDisplay();
-    } catch (err) {
-      showNotification('Error deleting note: ' + err.message, 'error');
-    }
-  }
+function navigateToEditor() {
+  window.location.href = 'index.html';
 }
 
-// Quick upload note to Google Drive from note card
-async function quickUploadToDrive(event, noteId) {
-  event.stopPropagation();
-  try {
-    if (!googleDriveSync.isConfigured()) {
-      showNotification('Please configure your Google Apps Script Webhook in Settings first', 'warning');
-      return;
-    }
-
-    const note = await churchTechDB.getNote(noteId);
-    if (!note) return;
-
-    showNotification(`Uploading "${note.title}" to Google Drive...`, 'info');
-    const result = await googleDriveSync.uploadNoteAsGoogleDoc(note);
-
-    if (result && result.success) {
-      await churchTechDB.markNoteUploaded(note.id, result.docId, result.docUrl);
-      const actionMsg = result.replaced ? 'Replaced existing Google Doc' : 'Synced to Google Drive';
-      showNotification(`✅ ${actionMsg} as "${result.title}"`, 'success');
-      await loadNotesDisplay();
-    }
-  } catch (err) {
-    showNotification('Drive upload error: ' + err.message, 'error');
-  }
-}
-
-// ============ COMBINE NOTES MODAL ============
-
-function openCombineNotesModal() {
-  if (allNotes.length < 2) {
-    showNotification('You need at least 2 notes to combine', 'warning');
-    return;
-  }
-
-  const modal = document.getElementById('combine-modal');
-  const list = document.getElementById('combine-notes-list');
-  const catSelect = document.getElementById('combine-category');
-
-  // Populate categories
-  catSelect.innerHTML = categoryManager.getCategories().map(c => `
-    <option value="${escapeHtml(c.name)}">${c.icon || '🏷️'} ${escapeHtml(c.name)}</option>
-  `).join('');
-
-  // Populate notes
-  list.innerHTML = allNotes.map(n => `
-    <label style="display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--bg-surface); border-radius: var(--radius-sm); cursor: pointer;">
-      <input type="checkbox" value="${n.id}" class="combine-checkbox">
-      <span style="font-weight: 600; font-size: 13px;">${escapeHtml(n.title)}</span>
-      <span style="font-size: 11px; color: var(--text-muted); margin-left: auto;">${escapeHtml(n.category || 'General')}</span>
-    </label>
-  `).join('');
-
-  document.getElementById('combine-title').value = 'Combined Technical Documentation - ' + new Date().toLocaleDateString();
-  modal.style.display = 'flex';
-}
-
-function closeCombineNotesModal() {
-  document.getElementById('combine-modal').style.display = 'none';
-}
-
-async function executeCombineNotes() {
-  const selectedIds = Array.from(document.querySelectorAll('.combine-checkbox:checked')).map(cb => cb.value);
-  if (selectedIds.length < 2) {
-    showNotification('Please select at least 2 notes to combine', 'warning');
-    return;
-  }
-
-  const title = (document.getElementById('combine-title').value || 'Combined Technical Notes').trim();
-  const category = document.getElementById('combine-category').value;
-
-  const notesToCombine = allNotes.filter(n => selectedIds.includes(n.id));
-
-  let combinedHtml = `<h1>${escapeHtml(title)}</h1><p><em>Combined on ${new Date().toLocaleString()} from ${notesToCombine.length} source notes.</em></p><hr><br>`;
-
-  notesToCombine.forEach(n => {
-    combinedHtml += `<h2>${escapeHtml(n.title)}</h2>`;
-    combinedHtml += `<p><strong>Category:</strong> ${escapeHtml(n.category || 'General')}</p>`;
-    combinedHtml += `<div>${n.text}</div><br><hr><br>`;
+// PWA Install
+let deferredPrompt = null;
+function setupPwaInstall() {
+  const installBtn = document.getElementById('install-button');
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    if (installBtn) installBtn.style.display = 'inline-flex';
   });
 
-  try {
-    const newNote = await churchTechDB.createNote(title, combinedHtml, category);
-    closeCombineNotesModal();
-    showNotification('Notes combined successfully!', 'success');
-    navigateToEditor(newNote.id);
-  } catch (err) {
-    showNotification('Failed to combine notes: ' + err.message, 'error');
-  }
-}
-
-// ============ SERVICE WORKER REGISTRATION ============
-
-async function registerServiceWorker() {
-  if ('serviceWorker' in navigator) {
-    try {
-      const reg = await navigator.serviceWorker.register('service-worker.js', { scope: './' });
-      console.log('[ChurchTech] Service Worker registered:', reg);
-
-      // Check for updates
-      reg.addEventListener('updatefound', () => {
-        const newWorker = reg.installing;
-        newWorker.addEventListener('statechange', () => {
-          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-            showNotification('New ChurchTech update available! Reload in Settings.', 'info', 6000);
-          }
-        });
-      });
-    } catch (err) {
-      console.warn('[ChurchTech] Service Worker registration failed:', err);
-    }
-  }
-}
-
-// PWA installation prompt handling
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  const installBtn = document.getElementById('install-button');
   if (installBtn) {
-    installBtn.style.display = 'inline-flex';
     installBtn.addEventListener('click', async () => {
-      e.prompt();
-      const outcome = await e.userChoice;
-      console.log('User response to install prompt:', outcome.outcome);
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+          installBtn.style.display = 'none';
+        }
+        deferredPrompt = null;
+      }
     });
   }
-});
+}

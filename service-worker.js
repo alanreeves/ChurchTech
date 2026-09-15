@@ -1,25 +1,21 @@
 // ChurchTech PWA - Service Worker
 // Enables offline functionality, fast caching, and instant version updates
 
-const CACHE_VERSION = 'v1.1.0-20260915';
+const CACHE_VERSION = 'v2.0.0-20260915';
 const CACHE_NAME = `churchtech-cache-${CACHE_VERSION}`;
 
 const URLS_TO_CACHE = [
   './',
   './index.html',
-  './editor.html',
   './settings.html',
   './styles.css',
   './manifest.json',
   './config.js',
+  './google-apps-script.js',
   './js/db.js',
-  './js/categories.js',
-  './js/prompts.js',
-  './js/api.js',
   './js/gdrive.js',
   './js/utils.js',
   './js/app.js',
-  './js/editor.js',
   './js/settings.js',
   './icons/icon-72x72.png',
   './icons/icon-96x96.png',

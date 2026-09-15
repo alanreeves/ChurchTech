@@ -1,5 +1,5 @@
-// ChurchTech - Google Drive Webhook Integration Module
-// Handles uploading notes as Google Docs to a shared Google Drive via Google Apps Script Webhook
+// ChurchTech Brain Dump - Google Drive Webhook Integration Module
+// Handles uploading brain dump notes as numbered Google Docs to Google Drive
 
 class GoogleDriveSync {
   constructor() {
@@ -76,7 +76,7 @@ class GoogleDriveSync {
     }
   }
 
-  // Upload a note to Google Drive as a native Google Doc
+  // Upload a brain dump note to Google Drive as a numbered Google Doc
   async uploadNoteAsGoogleDoc(note) {
     if (!this.isConfigured()) {
       throw new Error('Google Drive Webhook is not configured. Please add your Webhook URL in Settings.');
@@ -87,31 +87,11 @@ class GoogleDriveSync {
       throw new Error('Google Drive Webhook URL is empty. Please check your Settings.');
     }
 
-    // Determine target folder: Category-specific folder ID -> global default folder ID
-    let targetFolderId = this.getFolderId();
-    if (note.category && typeof categoryManager !== 'undefined') {
-      const cat = categoryManager.getCategoryByName(note.category);
-      if (cat && cat.folderId && cat.folderId.trim()) {
-        targetFolderId = cat.folderId.trim();
-      }
-    }
-
-    const markdownContent = (typeof htmlToMarkdown === 'function')
-      ? htmlToMarkdown(note.text || '')
-      : (note.text || '');
-
     const payload = {
-      title: note.title,
-      content: markdownContent,
-      category: note.category || 'General',
-      tags: Array.isArray(note.tags) ? note.tags : [],
-      folderId: targetFolderId,
-      image: (note.photo && note.photo.data) ? {
-        data: note.photo.data,
-        mimeType: note.photo.mimeType || 'image/jpeg',
-        name: note.photo.name || 'photo.jpg'
-      } : null,
-      source: 'ChurchTech PWA',
+      title: (note.title || 'Untitled Brain Dump').trim(),
+      content: note.text || '',
+      folderId: this.getFolderId(),
+      source: 'ChurchTech Brain Dump',
       timestamp: new Date().toISOString()
     };
 
@@ -119,7 +99,7 @@ class GoogleDriveSync {
       const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: {
-          'Content-Type': 'text/plain;charset=utf-8' // Using text/plain avoids CORS preflight issues with Google Apps Script
+          'Content-Type': 'text/plain;charset=utf-8'
         },
         body: JSON.stringify(payload)
       });
@@ -138,7 +118,7 @@ class GoogleDriveSync {
         docId: result.docId,
         docUrl: result.docUrl,
         title: result.title,
-        replaced: Boolean(result.replaced),
+        noteNumber: result.noteNumber,
         folderName: result.folderName || 'Google Drive',
         folderId: result.folderId
       };

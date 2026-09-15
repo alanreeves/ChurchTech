@@ -1,19 +1,19 @@
 /**
- * ChurchTech Google Apps Script Webhook
+ * ChurchTech Brain Dump - Google Apps Script Webhook
  * 
  * Instructions:
  * 1. Open Google Drive (https://drive.google.com)
  * 2. Click "+ New" -> "More" -> "Google Apps Script" (or visit https://script.google.com)
- * 3. Replace all code in the editor with this script.
+ * 3. Replace all code in the editor with this script and save (Ctrl+S).
  * 4. (Optional) Set your shared Google Drive folder ID below, or pass it from ChurchTech settings.
- * 5. Click "Deploy" -> "New deployment"
+ * 5. Click "Deploy" -> "New deployment" (or "Manage deployments" -> Edit -> "New version")
  * 6. Select type: "Web app"
  * 7. Set:
- *    - Description: "ChurchTech Notes Sync"
+ *    - Description: "ChurchTech Brain Dump Sync"
  *    - Execute as: "Me" (your Google account)
- *    - Who has access: "Anyone" (allows ChurchTech PWA to send notes securely)
+ *    - Who has access: "Anyone"
  * 8. Click "Deploy", authorize permissions when prompted, and copy the "Web App URL".
- * 9. Paste the Web App URL into ChurchTech Settings -> Google Drive Settings!
+ * 9. Paste the Web App URL into ChurchTech Settings!
  */
 
 // Optional: Default shared folder ID if not specified from the app
@@ -23,7 +23,7 @@ function doGet(e) {
   // Connection health check
   return ContentService.createTextOutput(JSON.stringify({
     success: true,
-    message: "ChurchTech Google Drive Webhook is online and ready!",
+    message: "ChurchTech Brain Dump Webhook is online and ready!",
     timestamp: new Date().toISOString()
   })).setMimeType(ContentService.MimeType.JSON);
 }
@@ -37,10 +37,8 @@ function doPost(e) {
       payload = e.parameter || {};
     }
 
-    const title = (payload.title || 'Untitled Technical Note').trim();
+    const rawTitle = (payload.title || 'Untitled Brain Dump').trim();
     const content = payload.content || payload.text || '';
-    const category = payload.category || 'General';
-    const tags = Array.isArray(payload.tags) ? payload.tags.join(', ') : (payload.tags || '');
     const folderId = (payload.folderId || DEFAULT_FOLDER_ID || '').trim();
 
     // 1. Determine destination folder
@@ -49,121 +47,81 @@ function doPost(e) {
       try {
         targetFolder = DriveApp.getFolderById(folderId);
       } catch (err) {
-        // Fallback if ID is invalid
         targetFolder = null;
       }
     }
     
     if (!targetFolder) {
-      // Find or create "ChurchTech Documentation" folder in user's drive
-      const folderIter = DriveApp.getFoldersByName('ChurchTech Documentation');
+      // Find or create "ChurchTech Brain Dumps" folder in user's drive
+      const folderIter = DriveApp.getFoldersByName('ChurchTech Brain Dumps');
       if (folderIter.hasNext()) {
         targetFolder = folderIter.next();
       } else {
-        targetFolder = DriveApp.createFolder('ChurchTech Documentation');
+        targetFolder = DriveApp.createFolder('ChurchTech Brain Dumps');
       }
     }
 
-    // 2. Determine or replace existing Google Doc in target folder
-    let doc = null;
-    let isReplaced = false;
-    const existingDocs = targetFolder.getFilesByName(title);
+    // 2. Base title & note numbering logic
+    // Strip any pre-existing "- note \d+" if the user entered it
+    const cleanBaseTitle = rawTitle.replace(/\s*-\s*note\s*\d+$/i, '').trim() || 'Brain Dump';
+    const normBaseTitle = normalizeForMatch(cleanBaseTitle);
 
-    while (existingDocs.hasNext()) {
-      const existingDocFile = existingDocs.next();
-      if (!doc) {
-        try {
-          // Attempt to open and reuse the existing Google Doc to replace its contents in place
-          doc = DocumentApp.openById(existingDocFile.getId());
-          isReplaced = true;
-        } catch (openErr) {
-          // If not an editable Google Doc, move to trash so new one replaces it
-          existingDocFile.setTrashed(true);
+    // Scan folder for existing docs starting with the same title
+    let maxNoteNum = 0;
+    const files = targetFolder.getFiles();
+
+    while (files.hasNext()) {
+      const file = files.next();
+      const fileName = file.getName();
+
+      // Check for format: "[Title] - note 001"
+      const match = fileName.match(/^(.*?)\s*-\s*note\s*(\d+)$/i);
+      if (match) {
+        const filePrefix = normalizeForMatch(match[1]);
+        if (filePrefix === normBaseTitle) {
+          const num = parseInt(match[2], 10);
+          if (!isNaN(num) && num > maxNoteNum) {
+            maxNoteNum = num;
+          }
         }
       } else {
-        // Trash any duplicate files with the same name in this folder
-        existingDocFile.setTrashed(true);
+        // Direct match without "- note" suffix
+        if (normalizeForMatch(fileName) === normBaseTitle) {
+          if (maxNoteNum < 1) {
+            maxNoteNum = 1;
+          }
+        }
       }
     }
 
-    // If no existing Google Doc was found in the folder, create a new one
-    if (!doc) {
-      doc = DocumentApp.create(title);
-      const newFile = DriveApp.getFileById(doc.getId());
-      targetFolder.addFile(newFile);
-      DriveApp.getRootFolder().removeFile(newFile);
-    }
+    // Next note number: 001, 002, etc. Never overwrite existing documents!
+    const nextNoteNum = maxNoteNum + 1;
+    const noteNumStr = String(nextNoteNum).padStart(3, '0');
+    const finalDocTitle = `${cleanBaseTitle} - note ${noteNumStr}`;
+
+    // 3. Create the brand new Google Doc
+    const doc = DocumentApp.create(finalDocTitle);
+    const newFile = DriveApp.getFileById(doc.getId());
+    targetFolder.addFile(newFile);
+    DriveApp.getRootFolder().removeFile(newFile);
 
     const body = doc.getBody();
     body.clear();
 
     // Title styling
-    const titlePara = body.appendParagraph(title);
+    const titlePara = body.appendParagraph(finalDocTitle);
     titlePara.setHeading(DocumentApp.ParagraphHeading.TITLE);
 
-    // Metadata Subtitle / Callout
-    const metaText = `Category: ${category}` + (tags ? ` | Tags: ${tags}` : '') + ` | Recorded: ${new Date().toLocaleString()}`;
+    // Timestamp Subtitle
+    const metaText = `Recorded: ${new Date().toLocaleString()} | Note #${nextNoteNum}`;
     const metaPara = body.appendParagraph(metaText);
     metaPara.setHeading(DocumentApp.ParagraphHeading.SUBTITLE);
     metaPara.setFontSize(10);
     metaPara.setForegroundColor('#64748b');
 
-    // Handle Attached Photo: Embed at start of Google Doc & save to Drive folder with link
-    if (payload.image && payload.image.data) {
-      try {
-        const base64Clean = payload.image.data.replace(/^data:image\/\w+;base64,/, '');
-        const mimeType = payload.image.mimeType || 'image/jpeg';
-        const imgName = (payload.image.name || (title + '-photo.jpg')).replace(/[^a-zA-Z0-9._-]/g, '_');
-        const imgBytes = Utilities.base64Decode(base64Clean);
-        const imgBlob = Utilities.newBlob(imgBytes, mimeType, imgName);
-
-        // A. Insert image directly into Google Doc
-        const inlineImg = body.appendImage(imgBlob);
-        
-        // Scale to a clean width within the Google Doc margins (max 500pt)
-        const origWidth = inlineImg.getWidth();
-        const origHeight = inlineImg.getHeight();
-        const maxDocWidth = 500;
-        if (origWidth > maxDocWidth) {
-          const scale = maxDocWidth / origWidth;
-          inlineImg.setWidth(maxDocWidth);
-          inlineImg.setHeight(Math.round(origHeight * scale));
-        }
-
-        // B. Replace any previous photo with the same name in targetFolder, then save new photo
-        const existingPhotos = targetFolder.getFilesByName(imgName);
-        while (existingPhotos.hasNext()) {
-          existingPhotos.next().setTrashed(true);
-        }
-        const driveImageFile = targetFolder.createFile(imgBlob);
-        
-        // C. Insert link below image in Google Doc
-        const photoLinkPara = body.appendParagraph('📷 High-Resolution Photo in Google Drive: ');
-        photoLinkPara.setFontSize(9);
-        photoLinkPara.setForegroundColor('#64748b');
-        photoLinkPara.appendText(driveImageFile.getName()).setLinkUrl(driveImageFile.getUrl());
-
-        body.appendParagraph(''); // Spacing
-      } catch (imgErr) {
-        // Fallback: If inline doc embedding fails, save separately and link in doc
-        try {
-          const base64Clean = payload.image.data.replace(/^data:image\/\w+;base64,/, '');
-          const imgBytes = Utilities.base64Decode(base64Clean);
-          const imgBlob = Utilities.newBlob(imgBytes, payload.image.mimeType || 'image/jpeg', 'Attached-Photo.jpg');
-          const driveImageFile = targetFolder.createFile(imgBlob);
-          const photoLinkPara = body.appendParagraph('📷 Attached Equipment Photo (Uploaded Separately): ');
-          photoLinkPara.setFontSize(10).setForegroundColor('#0284c7');
-          photoLinkPara.appendText('Open Photo in Google Drive ↗').setLinkUrl(driveImageFile.getUrl());
-          body.appendParagraph('');
-        } catch (backupErr) {
-          body.appendParagraph(`[Attached Photo could not be processed: ${imgErr.toString()}]`);
-        }
-      }
-    }
-
     body.appendHorizontalRule();
 
-    // Parse content lines and insert formatted paragraphs, headings, lists, tables, and bold styles
+    // 4. Parse brain dump content into Google Doc
     parseMarkdownIntoDoc(body, content);
 
     doc.saveAndClose();
@@ -172,8 +130,8 @@ function doPost(e) {
       success: true,
       docId: doc.getId(),
       docUrl: doc.getUrl(),
-      title: doc.getName(),
-      replaced: isReplaced,
+      title: finalDocTitle,
+      noteNumber: nextNoteNum,
       folderName: targetFolder.getName(),
       folderId: targetFolder.getId()
     })).setMimeType(ContentService.MimeType.JSON);
@@ -186,12 +144,17 @@ function doPost(e) {
   }
 }
 
+// Normalize string for fuzzy prefix matching (lowercased, whitespace collapsed)
+function normalizeForMatch(str) {
+  if (!str) return '';
+  return str.toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
 // ============ MARKDOWN & RICH TEXT TO GOOGLE DOCS PARSER ============
 
 function parseMarkdownIntoDoc(body, rawContent) {
   if (!rawContent) return;
 
-  // 1. Normalize HTML tags into markdown equivalents
   const markdownText = convertHtmlToMarkdown(rawContent);
   const lines = markdownText.split('\n');
 
@@ -246,7 +209,6 @@ function parseMarkdownIntoDoc(body, rawContent) {
           }
           body.appendParagraph(''); // Spacing after table
         } catch (tableErr) {
-          // Fallback if table construction fails
           for (let r = 0; r < tableRows.length; r++) {
             body.appendParagraph(tableRows[r].join(' | '));
           }

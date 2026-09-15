@@ -4,13 +4,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="ChurchTech - Voice-to-text notes and AI structured documentation for Church AV and IT infrastructure">
-  <meta name="theme-color" content="#0f172a">
+  <meta name="description" content="ChurchTech Brain Dump - Quick technical notes uploaded directly as numbered Google Docs">
+  <meta name="theme-color" content="#0b0f19">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/png" href="icons/icon-192x192.png">
   <link rel="apple-touch-icon" href="icons/icon-192x192.png">
   <link rel="stylesheet" href="styles.css">
-  <title>ChurchTech - AV & Infrastructure Notes</title>
+  <title>ChurchTech Brain Dump</title>
 </head>
 
 <body>
@@ -22,20 +22,16 @@
           <div class="app-logo">CT</div>
           <div class="header-title-wrap">
             <h1 class="header-title">
-              ChurchTech
-              <span class="version-badge" id="version-display">v1.0.0</span>
+              ChurchTech <span class="header-highlight">Brain Dump</span>
+              <span class="version-badge" id="version-display">v2.0.0</span>
             </h1>
-            <span class="header-tagline">AV & Technical Infrastructure Documentation</span>
+            <span class="header-tagline">Fast technical brain dumps synced to Google Drive</span>
           </div>
         </div>
 
         <div class="header-actions">
-          <button onclick="navigateToEditor()" class="btn btn-primary">+ New Note</button>
-          <button onclick="exportNotesAsJSON()" class="btn btn-secondary">Export</button>
-          <button onclick="importNotesFromJSON()" class="btn btn-secondary">Import</button>
-          <button onclick="openCombineNotesModal()" class="btn btn-secondary">Combine</button>
-          <button onclick="navigateToSettings()" class="btn btn-secondary">⚙ Settings</button>
-          <button id="install-button" class="btn btn-secondary" style="display: none;">⬇ Install App</button>
+          <button type="button" onclick="navigateToSettings()" class="btn btn-secondary">⚙️ Settings</button>
+          <button type="button" id="install-button" class="btn btn-secondary" style="display: none;">⬇️ Install</button>
         </div>
       </div>
     </div>
@@ -43,64 +39,55 @@
 
   <!-- Main Content -->
   <main class="main-content">
-    <div class="container">
-      <!-- Search & Controls Bar -->
-      <div class="controls-bar">
-        <div class="search-box">
-          <span class="search-icon">🔍</span>
-          <input type="text" id="search-input" class="search-input" placeholder="Search hardware, Dante channels, IP addresses, SOPs..." aria-label="Search notes">
+    <div class="container" style="max-width: 860px;">
+      
+      <!-- Brain Dump Input Card -->
+      <section class="brain-dump-card">
+        <div class="form-group" style="margin-bottom: 16px;">
+          <label for="note-title" class="brain-dump-label">Topic / Equipment Title</label>
+          <input type="text" id="note-title" class="form-control brain-dump-title-input" placeholder="e.g. BT Business Router" autocomplete="off" autofocus>
+          <span class="settings-help">The doc name will automatically be numbered in Google Drive (e.g. "BT Business Router - note 001"). Existing documents are never overwritten.</span>
         </div>
-        <div id="notes-stats" style="font-size: 13px; color: var(--text-muted);"></div>
-      </div>
 
-      <!-- Category Filter Pills Bar -->
-      <div id="category-filter-bar" class="category-filter-bar">
-        <!-- Categories pills injected here -->
-      </div>
+        <div class="form-group" style="margin-bottom: 20px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label for="note-content" class="brain-dump-label">Brain Dump Notes</label>
+            <span id="char-count" style="font-size: 11px; color: var(--text-muted);">0 characters</span>
+          </div>
+          <textarea id="note-content" class="form-control brain-dump-textarea" placeholder="Type or dictate notes here... Everything can be edited before tapping Upload." rows="14"></textarea>
+        </div>
 
-      <!-- Notes Grid -->
-      <div id="notes-grid" class="notes-grid">
-        <!-- Notes rendered dynamically -->
-      </div>
+        <!-- Action Bar -->
+        <div class="brain-dump-actions">
+          <div style="display: flex; gap: 10px; align-items: center;">
+            <button type="button" id="btn-upload" class="btn btn-primary btn-large" onclick="handleUploadBrainDump()">
+              ☁️ Upload to Google Drive
+            </button>
+            <button type="button" id="btn-clear" class="btn btn-secondary" onclick="handleClearForm()" title="Clear form for next note">
+              🗑️ Clear
+            </button>
+          </div>
+          <div id="upload-status" class="upload-status-indicator">Ready</div>
+        </div>
+      </section>
+
+      <!-- Recent Brain Dumps Section -->
+      <section class="recent-dumps-section">
+        <div class="recent-dumps-header">
+          <h2 class="recent-dumps-title">📋 Recent Brain Dumps</h2>
+          <span id="recent-count" class="recent-count-badge">0 saved</span>
+        </div>
+        <div id="recent-dumps-list" class="recent-dumps-list">
+          <!-- Injected via app.js -->
+        </div>
+      </section>
+
     </div>
   </main>
-
-  <!-- Combine Notes Modal -->
-  <div id="combine-modal" class="modal-overlay" style="display: none;">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3 class="modal-title">Combine Technical Notes</h3>
-        <button class="btn btn-secondary btn-small" onclick="closeCombineNotesModal()">✕</button>
-      </div>
-      <div class="modal-body">
-        <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 14px;">
-          Select multiple notes below to merge them into a single comprehensive technical document.
-        </p>
-        <div class="form-group">
-          <label for="combine-title">Combined Note Title</label>
-          <input type="text" id="combine-title" class="form-control" placeholder="e.g. Complete Sanctuary AV & Lighting Overview">
-        </div>
-        <div class="form-group">
-          <label for="combine-category">Category</label>
-          <select id="combine-category" class="form-control"></select>
-        </div>
-        <div id="combine-notes-list" style="max-height: 260px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
-          <!-- Notes checkboxes injected here -->
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="closeCombineNotesModal()">Cancel</button>
-        <button class="btn btn-primary" onclick="executeCombineNotes()">Combine & Open Editor</button>
-      </div>
-    </div>
-  </div>
 
   <!-- Scripts -->
   <script src="config.js"></script>
   <script src="js/db.js"></script>
-  <script src="js/categories.js"></script>
-  <script src="js/prompts.js"></script>
-  <script src="js/api.js"></script>
   <script src="js/gdrive.js"></script>
   <script src="js/utils.js"></script>
   <script src="js/app.js"></script>
