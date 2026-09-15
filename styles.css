@@ -964,3 +964,205 @@ textarea.form-control {
   margin-top: 2px;
 }
 
+/* ============ PHOTO CROPPER MODAL & ENGINE ============ */
+
+.photo-crop-modal-content {
+  max-width: 720px;
+  max-height: 94vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.photo-crop-modal-body {
+  padding: 12px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+  flex: 1;
+}
+
+.cropper-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.cropper-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cropper-toolbar-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.cropper-ratio-btn-group {
+  display: inline-flex;
+  background: var(--bg-main);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+  gap: 2px;
+}
+
+.cropper-ratio-btn {
+  padding: 4px 10px;
+  font-size: 11px;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cropper-ratio-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.cropper-ratio-btn.active {
+  background: var(--primary);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.4);
+}
+
+.cropper-workspace {
+  background: #030712;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  min-height: 250px;
+  height: 52vh;
+  max-height: 480px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  user-select: none;
+  touch-action: none;
+}
+
+.cropper-image-container {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.cropper-source-img {
+  display: block;
+  max-width: 100%;
+  max-height: 50vh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+}
+
+.cropper-shade {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.65);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.cropper-box {
+  position: absolute;
+  border: 2px solid var(--accent-cyan);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6), 0 0 16px rgba(56, 189, 248, 0.35);
+  z-index: 3;
+  box-sizing: border-box;
+  touch-action: none;
+}
+
+.cropper-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  transition: opacity 0.2s ease;
+}
+
+.cropper-box:hover .cropper-grid,
+.cropper-box.dragging .cropper-grid {
+  opacity: 0.9;
+}
+
+.cropper-grid-line {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.cropper-grid-h1 { top: 33.333%; left: 0; right: 0; height: 1px; }
+.cropper-grid-h2 { top: 66.666%; left: 0; right: 0; height: 1px; }
+.cropper-grid-v1 { left: 33.333%; top: 0; bottom: 0; width: 1px; }
+.cropper-grid-v2 { left: 66.666%; top: 0; bottom: 0; width: 1px; }
+
+.cropper-move-handle {
+  position: absolute;
+  inset: 0;
+  cursor: move;
+  z-index: 4;
+  touch-action: none;
+}
+
+.cropper-handle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  border: 2px solid var(--accent-cyan);
+  border-radius: 2px;
+  z-index: 5;
+  touch-action: none;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.6);
+}
+
+/* Enlarge touch area for mobile fingertips */
+.cropper-handle::after {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  right: -10px;
+  bottom: -10px;
+}
+
+.handle-nw { top: -6px; left: -6px; cursor: nwse-resize; }
+.handle-ne { top: -6px; right: -6px; cursor: nesw-resize; }
+.handle-se { bottom: -6px; right: -6px; cursor: nwse-resize; }
+.handle-sw { bottom: -6px; left: -6px; cursor: nesw-resize; }
+.handle-n { top: -6px; left: calc(50% - 6px); cursor: ns-resize; }
+.handle-s { bottom: -6px; left: calc(50% - 6px); cursor: ns-resize; }
+.handle-w { left: -6px; top: calc(50% - 6px); cursor: ew-resize; }
+.handle-e { right: -6px; top: calc(50% - 6px); cursor: ew-resize; }
+
+.cropper-help-text {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .cropper-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .cropper-toolbar-group {
+    justify-content: space-between;
+  }
+  .cropper-workspace {
+    height: 44vh;
+  }
+}
+

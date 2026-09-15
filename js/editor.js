@@ -34,6 +34,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     setupEditorListeners();
+    initCropperEvents();
     updateCharCount();
 
   } catch (err) {
@@ -201,7 +202,7 @@ function formatLink() {
   }
 }
 
-// ============ PHOTO CAPTURE & ATTACHMENT ============
+// ============ PHOTO CAPTURE, CROP & ATTACHMENT ============
 
 function triggerPhotoCapture() {
   const fileInput = document.getElementById('note-photo-file-input');
@@ -216,66 +217,25 @@ async function handlePhotoCaptured(event) {
   if (!file) return;
 
   try {
-    showNotification('Processing photo...', 'info');
-    const photoObj = await compressAndReadImage(file, 1600, 0.82);
-    currentNotePhoto = photoObj;
-    renderPhotoPreview();
-    unsavedChanges = true;
-
-    // Immediately persist photo if editing an existing note
-    if (currentNoteId) {
-      await churchTechDB.updateNote(currentNoteId, undefined, undefined, undefined, undefined, {
-        photo: currentNotePhoto
-      });
-      document.getElementById('autosave-status').textContent = 'Photo attached at ' + new Date().toLocaleTimeString();
-    }
-    showNotification('📷 Photo attached! It will be inserted at the start of the Google Doc.', 'success');
+    showNotification('Loading photo for cropping...', 'info');
+    const reader = new FileReader();
+    reader.onerror = () => showNotification('Could not read photo file', 'error');
+    reader.onload = (e) => {
+      openCropPhotoModal(e.target.result, file.name || 'equipment-photo.jpg');
+    };
+    reader.readAsDataURL(file);
   } catch (err) {
-    console.error('Error handling photo:', err);
+    console.error('Error handling photo capture:', err);
     showNotification('Error processing photo: ' + err.message, 'error');
   }
 }
 
-// Client-side image compression and resizing using an offscreen canvas
-function compressAndReadImage(file, maxDimension = 1600, quality = 0.82) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error('Failed to read photo file'));
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onerror = () => reject(new Error('Failed to load image for compression'));
-      img.onload = () => {
-        let width = img.width;
-        let height = img.height;
-
-        if (width > maxDimension || height > maxDimension) {
-          if (width > height) {
-            height = Math.round((height * maxDimension) / width);
-            width = maxDimension;
-          } else {
-            width = Math.round((width * maxDimension) / height);
-            height = maxDimension;
-          }
-        }
-
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
-
-        const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
-        resolve({
-          data: compressedDataUrl,
-          mimeType: 'image/jpeg',
-          name: file.name || 'churchtech-photo.jpg',
-          timestamp: Date.now()
-        });
-      };
-      img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
-  });
+function cropExistingPhoto() {
+  if (currentNotePhoto && currentNotePhoto.data) {
+    openCropPhotoModal(currentNotePhoto.data, currentNotePhoto.name || 'equipment-photo.jpg');
+  } else {
+    showNotification('No photo attached to crop', 'warning');
+  }
 }
 
 function renderPhotoPreview() {
@@ -325,6 +285,454 @@ function openPhotoLightbox() {
 function closePhotoLightbox() {
   const modal = document.getElementById('photo-lightbox-modal');
   if (modal) modal.style.display = 'none';
+}
+
+// ============ CROPPER ENGINE ============
+
+const cropperState = {
+  isOpen: false,
+  rawImage: null,
+  originalDataUrl: null,
+  currentDataUrl: null,
+  fileName: 'photo.jpg',
+  rotation: 0,
+  ratio: 'free', // 'free', '1:1', '4:3', '16:9'
+  box: { left: 0, top: 0, width: 0, height: 0 },
+  imgDisplay: { width: 0, height: 0 },
+  isDragging: false,
+  action: null, // 'move', 'nw', 'ne', 'se', 'sw', 'n', 's', 'w', 'e'
+  startX: 0,
+  startY: 0,
+  startBox: { left: 0, top: 0, width: 0, height: 0 },
+  activePointerId: null
+};
+
+function openCropPhotoModal(dataUrl, fileName = 'equipment-photo.jpg') {
+  cropperState.originalDataUrl = dataUrl;
+  cropperState.currentDataUrl = dataUrl;
+  cropperState.fileName = fileName;
+  cropperState.rotation = 0;
+  cropperState.ratio = 'free';
+  cropperState.isDragging = false;
+  cropperState.action = null;
+
+  const modal = document.getElementById('photo-crop-modal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  cropperState.isOpen = true;
+
+  updateRatioButtonsUI();
+  initCropperEvents();
+  loadCropperImage(dataUrl);
+}
+
+function closeCropModal(saved = false) {
+  const modal = document.getElementById('photo-crop-modal');
+  if (modal) modal.style.display = 'none';
+  cropperState.isOpen = false;
+  cropperState.isDragging = false;
+  cropperState.action = null;
+  const boxEl = document.getElementById('cropper-box');
+  if (boxEl) boxEl.classList.remove('dragging');
+}
+
+function updateRatioButtonsUI() {
+  document.querySelectorAll('.cropper-ratio-btn').forEach(btn => {
+    if (btn.dataset.ratio === cropperState.ratio) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+}
+
+function setCropRatio(ratio) {
+  cropperState.ratio = ratio;
+  updateRatioButtonsUI();
+  adjustBoxToRatio();
+}
+
+function getNumericRatio(ratioStr) {
+  switch (ratioStr) {
+    case '1:1': return 1.0;
+    case '4:3': return 4 / 3;
+    case '16:9': return 16 / 9;
+    default: return null;
+  }
+}
+
+function loadCropperImage(dataUrl) {
+  const sourceImg = document.getElementById('cropper-source-img');
+  if (!sourceImg) return;
+
+  const img = new Image();
+  img.onload = () => {
+    cropperState.rawImage = img;
+    sourceImg.src = dataUrl;
+
+    // Allow browser to render layout and compute dimensions
+    requestAnimationFrame(() => {
+      setTimeout(initCropperBox, 40);
+    });
+  };
+  img.src = dataUrl;
+}
+
+function initCropperBox() {
+  const sourceImg = document.getElementById('cropper-source-img');
+  if (!sourceImg || !cropperState.rawImage) return;
+
+  const dispW = sourceImg.offsetWidth;
+  const dispH = sourceImg.offsetHeight;
+
+  if (!dispW || !dispH) {
+    setTimeout(initCropperBox, 50);
+    return;
+  }
+
+  cropperState.imgDisplay = { width: dispW, height: dispH };
+
+  // Center initial crop box at 85% of visible size
+  const numRatio = getNumericRatio(cropperState.ratio);
+  let boxW, boxH;
+
+  if (numRatio) {
+    boxW = dispW * 0.85;
+    boxH = boxW / numRatio;
+    if (boxH > dispH * 0.85) {
+      boxH = dispH * 0.85;
+      boxW = boxH * numRatio;
+    }
+  } else {
+    boxW = dispW * 0.85;
+    boxH = dispH * 0.85;
+  }
+
+  boxW = Math.max(40, Math.round(boxW));
+  boxH = Math.max(40, Math.round(boxH));
+
+  const boxL = Math.max(0, Math.round((dispW - boxW) / 2));
+  const boxT = Math.max(0, Math.round((dispH - boxH) / 2));
+
+  cropperState.box = { left: boxL, top: boxT, width: boxW, height: boxH };
+  renderCropperBox();
+}
+
+function resetCropBox() {
+  initCropperBox();
+}
+
+function adjustBoxToRatio() {
+  const numRatio = getNumericRatio(cropperState.ratio);
+  if (!numRatio) return;
+
+  const dispW = cropperState.imgDisplay.width;
+  const dispH = cropperState.imgDisplay.height;
+  let { left, top, width, height } = cropperState.box;
+
+  // Adjust width and height to ratio based on current center
+  const centerX = left + width / 2;
+  const centerY = top + height / 2;
+
+  let newW = width;
+  let newH = newW / numRatio;
+
+  if (newH > dispH) {
+    newH = dispH;
+    newW = newH * numRatio;
+  }
+  if (newW > dispW) {
+    newW = dispW;
+    newH = newW / numRatio;
+  }
+
+  let newL = Math.round(centerX - newW / 2);
+  let newT = Math.round(centerY - newH / 2);
+
+  if (newL < 0) newL = 0;
+  if (newT < 0) newT = 0;
+  if (newL + newW > dispW) newL = dispW - newW;
+  if (newT + newH > dispH) newT = dispH - newH;
+
+  cropperState.box = {
+    left: Math.max(0, Math.round(newL)),
+    top: Math.max(0, Math.round(newT)),
+    width: Math.max(30, Math.round(newW)),
+    height: Math.max(30, Math.round(newH))
+  };
+  renderCropperBox();
+}
+
+function renderCropperBox() {
+  const boxEl = document.getElementById('cropper-box');
+  const shadeTop = document.getElementById('cropper-shade-top');
+  const shadeBottom = document.getElementById('cropper-shade-bottom');
+  const shadeLeft = document.getElementById('cropper-shade-left');
+  const shadeRight = document.getElementById('cropper-shade-right');
+  if (!boxEl) return;
+
+  const { left, top, width, height } = cropperState.box;
+  const dispW = cropperState.imgDisplay.width;
+  const dispH = cropperState.imgDisplay.height;
+
+  boxEl.style.left = `${left}px`;
+  boxEl.style.top = `${top}px`;
+  boxEl.style.width = `${width}px`;
+  boxEl.style.height = `${height}px`;
+
+  if (shadeTop) {
+    shadeTop.style.top = '0px';
+    shadeTop.style.left = '0px';
+    shadeTop.style.width = `${dispW}px`;
+    shadeTop.style.height = `${Math.max(0, top)}px`;
+  }
+  if (shadeBottom) {
+    shadeBottom.style.top = `${top + height}px`;
+    shadeBottom.style.left = '0px';
+    shadeBottom.style.width = `${dispW}px`;
+    shadeBottom.style.height = `${Math.max(0, dispH - (top + height))}px`;
+  }
+  if (shadeLeft) {
+    shadeLeft.style.top = `${top}px`;
+    shadeLeft.style.left = '0px';
+    shadeLeft.style.width = `${Math.max(0, left)}px`;
+    shadeLeft.style.height = `${height}px`;
+  }
+  if (shadeRight) {
+    shadeRight.style.top = `${top}px`;
+    shadeRight.style.left = `${left + width}px`;
+    shadeRight.style.width = `${Math.max(0, dispW - (left + width))}px`;
+    shadeRight.style.height = `${height}px`;
+  }
+}
+
+function rotateCropperImage(degrees = 90) {
+  if (!cropperState.rawImage) return;
+
+  const srcImg = cropperState.rawImage;
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+
+  canvas.width = srcImg.height;
+  canvas.height = srcImg.width;
+
+  ctx.translate(canvas.width / 2, canvas.height / 2);
+  ctx.rotate((degrees * Math.PI) / 180);
+  ctx.drawImage(srcImg, -srcImg.width / 2, -srcImg.height / 2);
+
+  const rotatedDataUrl = canvas.toDataURL('image/jpeg', 0.90);
+  cropperState.currentDataUrl = rotatedDataUrl;
+  cropperState.rotation = (cropperState.rotation + degrees) % 360;
+
+  loadCropperImage(rotatedDataUrl);
+}
+
+function initCropperEvents() {
+  const container = document.getElementById('cropper-image-container');
+  if (!container || container.dataset.eventsInitialized) return;
+  container.dataset.eventsInitialized = 'true';
+
+  container.addEventListener('pointerdown', handleCropperPointerDown);
+  window.addEventListener('pointermove', handleCropperPointerMove);
+  window.addEventListener('pointerup', handleCropperPointerUp);
+  window.addEventListener('pointercancel', handleCropperPointerUp);
+
+  window.addEventListener('resize', () => {
+    if (cropperState.isOpen && cropperState.rawImage) {
+      initCropperBox();
+    }
+  });
+}
+
+function handleCropperPointerDown(e) {
+  if (!cropperState.isOpen) return;
+
+  const target = e.target;
+  let action = null;
+
+  if (target.dataset && target.dataset.handle) {
+    action = target.dataset.handle;
+  } else if (target.id === 'cropper-move-handle' || target.closest('#cropper-box')) {
+    action = 'move';
+  } else {
+    return;
+  }
+
+  e.preventDefault();
+  cropperState.isDragging = true;
+  cropperState.action = action;
+  cropperState.startX = e.clientX;
+  cropperState.startY = e.clientY;
+  cropperState.startBox = { ...cropperState.box };
+  cropperState.activePointerId = e.pointerId;
+
+  if (target.setPointerCapture) {
+    try { target.setPointerCapture(e.pointerId); } catch (_) {}
+  }
+
+  const boxEl = document.getElementById('cropper-box');
+  if (boxEl) boxEl.classList.add('dragging');
+}
+
+function handleCropperPointerMove(e) {
+  if (!cropperState.isDragging || e.pointerId !== cropperState.activePointerId) return;
+
+  const dx = e.clientX - cropperState.startX;
+  const dy = e.clientY - cropperState.startY;
+  const dispW = cropperState.imgDisplay.width;
+  const dispH = cropperState.imgDisplay.height;
+  const start = cropperState.startBox;
+  const minSize = 40;
+  const ratioVal = getNumericRatio(cropperState.ratio);
+
+  if (cropperState.action === 'move') {
+    const newL = Math.max(0, Math.min(start.left + dx, dispW - start.width));
+    const newT = Math.max(0, Math.min(start.top + dy, dispH - start.height));
+    cropperState.box.left = Math.round(newL);
+    cropperState.box.top = Math.round(newT);
+  } else {
+    // Handle resizing
+    let newL = start.left;
+    let newT = start.top;
+    let newW = start.width;
+    let newH = start.height;
+    const act = cropperState.action;
+
+    if (act.includes('e')) {
+      newW = Math.max(minSize, Math.min(start.width + dx, dispW - start.left));
+    }
+    if (act.includes('s')) {
+      newH = Math.max(minSize, Math.min(start.height + dy, dispH - start.top));
+    }
+    if (act.includes('w')) {
+      const maxWDelta = start.width - minSize;
+      const actualDx = Math.max(-start.left, Math.min(dx, maxWDelta));
+      newL = start.left + actualDx;
+      newW = start.width - actualDx;
+    }
+    if (act.includes('n')) {
+      const maxHDelta = start.height - minSize;
+      const actualDy = Math.max(-start.top, Math.min(dy, maxHDelta));
+      newT = start.top + actualDy;
+      newH = start.height - actualDy;
+    }
+
+    // Apply fixed aspect ratio constraint if one is set
+    if (ratioVal) {
+      if (act === 'n' || act === 's') {
+        newW = newH * ratioVal;
+        if (newL + newW > dispW) {
+          newW = dispW - newL;
+          newH = newW / ratioVal;
+        }
+      } else {
+        newH = newW / ratioVal;
+        if (newT + newH > dispH) {
+          newH = dispH - newT;
+          newW = newH * ratioVal;
+        }
+      }
+    }
+
+    cropperState.box = {
+      left: Math.round(newL),
+      top: Math.round(newT),
+      width: Math.round(newW),
+      height: Math.round(newH)
+    };
+  }
+
+  renderCropperBox();
+}
+
+function handleCropperPointerUp(e) {
+  if (cropperState.isDragging && e.pointerId === cropperState.activePointerId) {
+    cropperState.isDragging = false;
+    cropperState.action = null;
+    cropperState.activePointerId = null;
+    const boxEl = document.getElementById('cropper-box');
+    if (boxEl) boxEl.classList.remove('dragging');
+  }
+}
+
+async function applyCropAndSave() {
+  if (!cropperState.rawImage) return;
+
+  const btn = document.getElementById('btn-apply-crop');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '⏳ Processing...';
+  }
+
+  try {
+    const dispW = cropperState.imgDisplay.width;
+    const dispH = cropperState.imgDisplay.height;
+    const natW = cropperState.rawImage.naturalWidth;
+    const natH = cropperState.rawImage.naturalHeight;
+
+    const scaleX = natW / dispW;
+    const scaleY = natH / dispH;
+
+    let srcX = Math.round(cropperState.box.left * scaleX);
+    let srcY = Math.round(cropperState.box.top * scaleY);
+    let srcW = Math.round(cropperState.box.width * scaleX);
+    let srcH = Math.round(cropperState.box.height * scaleY);
+
+    srcX = Math.max(0, Math.min(srcX, natW - 1));
+    srcY = Math.max(0, Math.min(srcY, natH - 1));
+    srcW = Math.max(20, Math.min(srcW, natW - srcX));
+    srcH = Math.max(20, Math.min(srcH, natH - srcY));
+
+    // Cap output resolution proportionally for performance and storage
+    const maxDim = 1600;
+    let targetW = srcW;
+    let targetH = srcH;
+    if (targetW > maxDim || targetH > maxDim) {
+      if (targetW > targetH) {
+        targetH = Math.round((targetH * maxDim) / targetW);
+        targetW = maxDim;
+      } else {
+        targetW = Math.round((targetW * maxDim) / targetH);
+        targetH = maxDim;
+      }
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = targetW;
+    canvas.height = targetH;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(cropperState.rawImage, srcX, srcY, srcW, srcH, 0, 0, targetW, targetH);
+
+    const croppedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+    currentNotePhoto = {
+      data: croppedDataUrl,
+      mimeType: 'image/jpeg',
+      name: cropperState.fileName || 'churchtech-photo.jpg',
+      timestamp: Date.now()
+    };
+
+    renderPhotoPreview();
+    unsavedChanges = true;
+
+    if (currentNoteId) {
+      await churchTechDB.updateNote(currentNoteId, undefined, undefined, undefined, undefined, {
+        photo: currentNotePhoto
+      });
+      document.getElementById('autosave-status').textContent = 'Photo attached at ' + new Date().toLocaleTimeString();
+    }
+
+    closeCropModal(true);
+    showNotification('📷 Photo cropped and attached! It will be added to the start of Google Doc.', 'success');
+  } catch (err) {
+    console.error('Error applying crop:', err);
+    showNotification('Error cropping photo: ' + err.message, 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '✅ Crop & Attach Photo';
+    }
+  }
 }
 
 // ============ NOTE ACTIONS ============

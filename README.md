@@ -20,9 +20,10 @@ It enables church technicians and volunteers to dictate technical notes via **De
 - **In-Editor Flexibility**: When structuring a note with OpenAI, the category's assigned prompt is pre-loaded and can be inspected or adjusted on-the-fly before running.
 - **Arbitrary Model Support**: Select popular models (`gpt-4o`, `gpt-4o-mini`, `o3-mini`, `gpt-4-turbo`, `gpt-3.5-turbo`) or type in any custom/fine-tuned model.
 
-### 3. 📷 Hardware Photo Capture & Documentation
+### 3. 📷 Hardware Photo Capture, Interactive Cropping & Documentation
 - **Direct Camera Capture**: Easily take photos of AV racks, patch panels, switch port labels, and serial numbers directly from mobile or desktop using the "📷 Photo" button.
-- **Automatic Client-Side Compression**: High-resolution camera photos are automatically scaled and optimized client-side to prevent browser lag and ensure rapid synchronization.
+- **Interactive Photo Cropper**: Instantly crop, adjust aspect ratios (Freeform, 1:1, 4:3, 16:9), and rotate 90° clockwise before attaching to notes. Existing photos can also be re-cropped anytime via the "✂️ Crop" button.
+- **Automatic Client-Side Optimization**: Cropped photos are scaled and compressed client-side to prevent browser lag and ensure rapid synchronization.
 - **Embedded in Google Docs**: Photos are embedded right at the start of the generated native Google Doc.
 - **Saved in Google Drive with Direct Link**: In addition to inline embedding, high-resolution photo files are saved directly into the target Google Drive folder, with a clickable link inserted into the Google Doc.
 
@@ -39,7 +40,7 @@ It enables church technicians and volunteers to dictate technical notes via **De
 - **Export Categories & Prompts to Local File** (`.json`) and **Import/Reload from Local File** right from Settings.
 
 ### 6. 🔄 Visible Versioning & Service Worker Update Control
-- Prominently visible version code badge on the home page, editor, and settings (`v1.0.8 (build 2026.09.15)`).
+- Prominently visible version code badge on the home page, editor, and settings (`v1.0.9 (build 2026.09.15)`).
 - **"🔄 Force Reload & Update App"** button in Settings: Commands the Service Worker to flush offline caches, skip waiting, and reload to the freshest deployment.
 - **💾 Save & Export Settings to Local File**: The Save & Export button in the Maintenance & Privacy section saves configuration to browser storage and exports all settings into a local JSON file (including Deepgram and OpenAI keys, models, and categories with their prompts and folder IDs).
 - **Silent Operation**: Zero audio chimes or background microphone device activations when navigating pages.
