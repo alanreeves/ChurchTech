@@ -156,6 +156,7 @@ function renderFilteredNotes() {
             <span class="cat-badge" style="border-color: ${categoryObj.color}40; color: ${categoryObj.color}">
               ${categoryObj.icon || '🏷️'} ${escapeHtml(note.category || 'General')}
             </span>
+            ${note.photo && note.photo.data ? `<span class="photo-badge" title="Photo attached">📷 Photo</span>` : ''}
             ${driveBadgeHtml}
           </div>
           <h3 class="note-title">${escapeHtml(note.title)}</h3>

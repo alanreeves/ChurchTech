@@ -80,6 +80,55 @@ function doPost(e) {
     metaPara.setFontSize(10);
     metaPara.setForegroundColor('#64748b');
 
+    // Handle Attached Photo: Embed at start of Google Doc & save to Drive folder with link
+    if (payload.image && payload.image.data) {
+      try {
+        const base64Clean = payload.image.data.replace(/^data:image\/\w+;base64,/, '');
+        const mimeType = payload.image.mimeType || 'image/jpeg';
+        const imgName = (payload.image.name || (title + '-photo.jpg')).replace(/[^a-zA-Z0-9._-]/g, '_');
+        const imgBytes = Utilities.base64Decode(base64Clean);
+        const imgBlob = Utilities.newBlob(imgBytes, mimeType, imgName);
+
+        // A. Insert image directly into Google Doc
+        const inlineImg = body.appendImage(imgBlob);
+        
+        // Scale to a clean width within the Google Doc margins (max 500pt)
+        const origWidth = inlineImg.getWidth();
+        const origHeight = inlineImg.getHeight();
+        const maxDocWidth = 500;
+        if (origWidth > maxDocWidth) {
+          const scale = maxDocWidth / origWidth;
+          inlineImg.setWidth(maxDocWidth);
+          inlineImg.setHeight(Math.round(origHeight * scale));
+        }
+
+        // B. Save photo file into target Google Drive folder
+        const driveImageFile = targetFolder.createFile(imgBlob);
+        
+        // C. Insert link below image in Google Doc
+        const photoLinkPara = body.appendParagraph('📷 High-Resolution Photo in Google Drive: ');
+        photoLinkPara.setFontSize(9);
+        photoLinkPara.setForegroundColor('#64748b');
+        photoLinkPara.appendText(driveImageFile.getName()).setLinkUrl(driveImageFile.getUrl());
+
+        body.appendParagraph(''); // Spacing
+      } catch (imgErr) {
+        // Fallback: If inline doc embedding fails, save separately and link in doc
+        try {
+          const base64Clean = payload.image.data.replace(/^data:image\/\w+;base64,/, '');
+          const imgBytes = Utilities.base64Decode(base64Clean);
+          const imgBlob = Utilities.newBlob(imgBytes, payload.image.mimeType || 'image/jpeg', 'Attached-Photo.jpg');
+          const driveImageFile = targetFolder.createFile(imgBlob);
+          const photoLinkPara = body.appendParagraph('📷 Attached Equipment Photo (Uploaded Separately): ');
+          photoLinkPara.setFontSize(10).setForegroundColor('#0284c7');
+          photoLinkPara.appendText('Open Photo in Google Drive ↗').setLinkUrl(driveImageFile.getUrl());
+          body.appendParagraph('');
+        } catch (backupErr) {
+          body.appendParagraph(`[Attached Photo could not be processed: ${imgErr.toString()}]`);
+        }
+      }
+    }
+
     body.appendHorizontalRule();
 
     // Parse content lines and insert formatted paragraphs

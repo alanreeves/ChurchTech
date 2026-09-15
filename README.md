@@ -20,21 +20,28 @@ It enables church technicians and volunteers to dictate technical notes via **De
 - **In-Editor Flexibility**: When structuring a note with OpenAI, the category's assigned prompt is pre-loaded and can be inspected or adjusted on-the-fly before running.
 - **Arbitrary Model Support**: Select popular models (`gpt-4o`, `gpt-4o-mini`, `o3-mini`, `gpt-4-turbo`, `gpt-3.5-turbo`) or type in any custom/fine-tuned model.
 
-### 3. ☁️ Google Drive & NotebookLM Integration
-- Direct upload of notes to a designated shared Google Drive folder as formatted **native Google Docs**.
+### 3. 📷 Hardware Photo Capture & Documentation
+- **Direct Camera Capture**: Easily take photos of AV racks, patch panels, switch port labels, and serial numbers directly from mobile or desktop using the "📷 Photo" button.
+- **Automatic Client-Side Compression**: High-resolution camera photos are automatically scaled and optimized client-side to prevent browser lag and ensure rapid synchronization.
+- **Embedded in Google Docs**: Photos are embedded right at the start of the generated native Google Doc.
+- **Saved in Google Drive with Direct Link**: In addition to inline embedding, high-resolution photo files are saved directly into the target Google Drive folder, with a clickable link inserted into the Google Doc.
+
+### 4. ☁️ Google Drive & NotebookLM Integration with Per-Category Folders
+- Direct upload of notes to designated shared Google Drive folders as formatted **native Google Docs**.
+- **Per-Category Google Drive Folder IDs**: Each technical category can route notes to its own specific Google Drive folder (e.g., separate folders for Network, Audio, Video), with a global fallback folder setting.
 - Ready for immediate indexing and querying in **Google's NotebookLM**.
 - Uses a lightweight **Google Apps Script Webhook**—no Google Cloud Console project or OAuth verification required.
 - Tracks document IDs, upload timestamps, and direct links to open the Google Doc.
 
-### 4. 🏷️ Category Management with JSON Export / Import
+### 5. 🏷️ Category Management with JSON Export / Import
 - Mobile-first card layout for easily managing categories on phones and tablets in the field.
 - **Export Categories & Prompts to Local File** (`.json`) and **Import/Reload from Local File** right from Settings.
 
-### 5. 🔄 Visible Versioning & Service Worker Update Control
-- Prominently visible version code badge on the home page, editor, and settings (`v1.0.5 (build 2026.09.14)`).
+### 6. 🔄 Visible Versioning & Service Worker Update Control
+- Prominently visible version code badge on the home page, editor, and settings (`v1.0.6 (build 2026.09.15)`).
 - **"🔄 Force Reload & Update App"** button in Settings: Commands the Service Worker to flush offline caches, skip waiting, and reload to the freshest deployment.
-- **💾 Save & Export Settings to Local File**: The Save & Export button in the Maintenance & Privacy section saves configuration to browser storage and exports all settings into a local JSON file (including Deepgram and OpenAI keys, models, and categories with their prompts).
-- **📂 Reload Settings with API Key Prompt**: When reloading settings from a file, prompts whether or not to restore API keys, allowing users to restore preferences without unintentionally overwriting existing credentials.
+- **💾 Save & Export Settings to Local File**: The Save & Export button in the Maintenance & Privacy section saves configuration to browser storage and exports all settings into a local JSON file (including Deepgram and OpenAI keys, models, and categories with their prompts and folder IDs).
+- **Silent Operation**: Zero audio chimes or background microphone device activations when navigating pages.
 
 ---
 

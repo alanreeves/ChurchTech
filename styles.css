@@ -531,6 +531,87 @@ body {
   background-color: rgba(16, 185, 129, 0.3);
 }
 
+.toolbar-btn-camera {
+  background-color: rgba(56, 189, 248, 0.15);
+  color: #7dd3fc;
+  border-color: rgba(56, 189, 248, 0.3);
+}
+
+.toolbar-btn-camera:hover {
+  background-color: rgba(56, 189, 248, 0.3);
+}
+
+/* Photo Attachment in Editor */
+.note-photo-preview-box {
+  margin-bottom: 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 10px;
+  position: relative;
+  box-shadow: var(--shadow-sm);
+}
+
+.note-photo-wrapper {
+  position: relative;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  max-height: 280px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #000;
+  cursor: pointer;
+}
+
+.note-photo-wrapper img {
+  max-width: 100%;
+  max-height: 280px;
+  object-fit: contain;
+  transition: transform 0.2s ease;
+}
+
+.note-photo-wrapper img:hover {
+  transform: scale(1.02);
+}
+
+.note-photo-overlay {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.note-photo-meta {
+  font-size: 12px;
+  color: var(--accent-cyan);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+}
+
+.note-photo-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+/* Photo badge on dashboard cards */
+.photo-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
 /* Editor text area */
 .editor-content {
   min-height: 380px;

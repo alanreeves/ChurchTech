@@ -100,6 +100,12 @@
           </div>
 
           <div class="toolbar-group">
+            <!-- Photo Capture / Attachment -->
+            <button id="btn-camera" class="toolbar-btn toolbar-btn-camera" onclick="triggerPhotoCapture()" title="Take a photo with camera or attach image">
+              📷 Photo
+            </button>
+            <input type="file" id="note-photo-file-input" accept="image/*" capture="environment" style="display: none;" onchange="handlePhotoCaptured(event)">
+
             <!-- Deepgram Voice-to-Text -->
             <button id="btn-speak" class="toolbar-btn toolbar-btn-mic" onclick="toggleSpeechToText()" title="Record voice with Deepgram">
               🎤 Speak
@@ -109,6 +115,20 @@
             <button class="toolbar-btn toolbar-btn-ai" onclick="openAIRevisionModal()" title="Revise and structure with OpenAI">
               ✨ AI Revise & Structure
             </button>
+          </div>
+        </div>
+
+        <!-- Attached Photo Preview Banner -->
+        <div id="note-photo-container" class="note-photo-preview-box" style="display: none;">
+          <div class="note-photo-wrapper" onclick="openPhotoLightbox()" title="Click to view full photo">
+            <img id="note-photo-img" src="" alt="Hardware documentation photo">
+          </div>
+          <div class="note-photo-overlay">
+            <span id="note-photo-meta" class="note-photo-meta">📷 Photo attached (will be added to the start of Google Doc)</span>
+            <div class="note-photo-buttons">
+              <button type="button" class="btn btn-small btn-secondary" onclick="triggerPhotoCapture()">🔄 Retake</button>
+              <button type="button" class="btn btn-small btn-danger" onclick="removeAttachedPhoto()">🗑 Remove</button>
+            </div>
           </div>
         </div>
 
@@ -189,6 +209,16 @@
         <button class="btn btn-secondary" onclick="closeAIRevisionModal()">Cancel</button>
         <button id="btn-run-ai" class="btn btn-primary" onclick="executeAIRevision()">✨ Run Structuring</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Photo Lightbox Modal -->
+  <div id="photo-lightbox-modal" class="modal-overlay" style="display: none;" onclick="closePhotoLightbox()">
+    <div style="position: relative; max-width: 90vw; max-height: 90vh; display: flex; flex-direction: column; align-items: center;" onclick="event.stopPropagation()">
+      <div style="width: 100%; display: flex; justify-content: flex-end; margin-bottom: 8px;">
+        <button class="btn btn-secondary btn-small" onclick="closePhotoLightbox()">✕ Close</button>
+      </div>
+      <img id="lightbox-img" src="" style="max-width: 90vw; max-height: 80vh; border-radius: var(--radius-sm); box-shadow: var(--shadow-lg); object-fit: contain;">
     </div>
   </div>
 

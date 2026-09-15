@@ -129,10 +129,10 @@
           </div>
 
           <div class="form-group">
-            <label for="gdrive-folder-id">Target Google Drive Folder ID (Optional)</label>
+            <label for="gdrive-folder-id">Default Google Drive Folder ID (Global Fallback)</label>
             <input type="text" id="gdrive-folder-id" class="form-control" placeholder="e.g. 1A2b3C4d5E... (from the URL of your shared folder)">
             <p class="settings-help">
-              If left blank, notes will be saved into a "ChurchTech Documentation" folder created in your Google Drive root.
+              Default destination folder. You can also specify category-specific folder IDs in Section 2 (Technical Categories) above. If left blank, notes will be saved into a "ChurchTech Documentation" folder.
             </p>
           </div>
 
@@ -237,6 +237,11 @@
         <div class="form-group">
           <label for="cat-desc-input">Description (Optional)</label>
           <input type="text" id="cat-desc-input" class="form-control" placeholder="What technical equipment falls under this category?">
+        </div>
+        <div class="form-group">
+          <label for="cat-folder-input">Target Google Drive Folder ID (Optional)</label>
+          <input type="text" id="cat-folder-input" class="form-control" placeholder="e.g. 1A2b3C4d5E... (from Google Drive folder URL)">
+          <p class="settings-help">Google Docs for notes in this category will be saved here. If left blank, uses the default folder below.</p>
         </div>
         <div class="form-group">
           <label for="cat-prompt-input">OpenAI Structuring Prompt for this Category</label>

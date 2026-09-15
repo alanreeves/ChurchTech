@@ -11,6 +11,7 @@ class CategoryManager {
         color: '#34d399',
         icon: '🌐',
         description: 'Switches, VLANs, subnets, routers, Wi-Fi access points, credentials',
+        folderId: '',
         prompt: `You are a Church IT & Systems Administrator.
 Convert the following technical notes into a standardized Network & Software Infrastructure Record.
 
@@ -49,22 +50,14 @@ Convert the following technical notes into a clear, structured technical documen
   // Retrieve all categories
   getCategories() {
     try {
-      // One-time migration to merge prompts directly into categories
-      const versionKey = 'churchtech_categories_ver';
-      const targetVer = 'v4_category_with_prompt';
-      if (localStorage.getItem(versionKey) !== targetVer) {
-        this.saveCategories(this.defaultCategories);
-        localStorage.setItem(versionKey, targetVer);
-        return this.defaultCategories;
-      }
-
       const saved = localStorage.getItem(this.storageKey);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Ensure each category has a prompt
+          // Ensure each category has a prompt and folderId
           return parsed.map(c => ({
             ...c,
+            folderId: c.folderId || '',
             prompt: c.prompt || this.getDefaultPrompt()
           }));
         }
@@ -93,7 +86,7 @@ Convert the following technical notes into a clear, structured technical documen
   }
 
   // Add a new category
-  addCategory(name, color = '#6366f1', icon = '🏷️', description = '', promptText = '') {
+  addCategory(name, color = '#6366f1', icon = '🏷️', description = '', promptText = '', folderId = '') {
     const categories = this.getCategories();
     const cleanName = name.trim();
     if (!cleanName) throw new Error('Category name cannot be empty');
@@ -109,6 +102,7 @@ Convert the following technical notes into a clear, structured technical documen
       color: color || '#6366f1',
       icon: icon || '🏷️',
       description: description.trim(),
+      folderId: (folderId || '').trim(),
       prompt: (promptText || '').trim() || this.getDefaultPrompt()
     };
 
@@ -206,6 +200,7 @@ Convert the following technical notes into a clear, structured technical documen
               color: cat.color || '#6366f1',
               icon: cat.icon || '🏷️',
               description: cat.description || '',
+              folderId: cat.folderId || '',
               prompt: cat.prompt || this.getDefaultPrompt()
             };
           });

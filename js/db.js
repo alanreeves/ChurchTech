@@ -66,6 +66,7 @@ class ChurchTechDB {
       title: title.trim(),
       text: text,
       rawTranscript: '',
+      photo: null,
       category: category || 'General',
       tags: Array.isArray(tags) ? tags : [],
       gdriveDocId: null,

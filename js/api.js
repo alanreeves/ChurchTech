@@ -28,7 +28,7 @@ class AIIntegration {
         return [];
       }
 
-      await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Enumerate devices without opening an audio stream to avoid mic-activation chimes
       const devices = await navigator.mediaDevices.enumerateDevices();
       return devices.filter(device => device.kind === 'audioinput');
     } catch (error) {

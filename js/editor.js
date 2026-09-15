@@ -1,6 +1,7 @@
 // ChurchTech - Rich Text Editor Page Logic
 
 let currentNoteId = null;
+let currentNotePhoto = null;
 let isNewNote = true;
 let unsavedChanges = false;
 let autoSaveTimer = null;
@@ -27,6 +28,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       document.getElementById('delete-button').style.display = 'inline-flex';
     } else {
       isNewNote = true;
+      currentNotePhoto = null;
+      renderPhotoPreview();
       document.getElementById('note-title').focus();
     }
 
@@ -65,6 +68,9 @@ async function loadNote(id) {
     document.getElementById('note-title').value = note.title;
     document.getElementById('note-content').innerHTML = note.text;
     populateCategoryDropdown(note.category || 'General');
+
+    currentNotePhoto = note.photo || null;
+    renderPhotoPreview();
 
     updateDriveSyncBadge(note);
     document.title = `${note.title} - ChurchTech`;
@@ -195,6 +201,132 @@ function formatLink() {
   }
 }
 
+// ============ PHOTO CAPTURE & ATTACHMENT ============
+
+function triggerPhotoCapture() {
+  const fileInput = document.getElementById('note-photo-file-input');
+  if (fileInput) {
+    fileInput.value = '';
+    fileInput.click();
+  }
+}
+
+async function handlePhotoCaptured(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  try {
+    showNotification('Processing photo...', 'info');
+    const photoObj = await compressAndReadImage(file, 1600, 0.82);
+    currentNotePhoto = photoObj;
+    renderPhotoPreview();
+    unsavedChanges = true;
+
+    // Immediately persist photo if editing an existing note
+    if (currentNoteId) {
+      await churchTechDB.updateNote(currentNoteId, undefined, undefined, undefined, undefined, {
+        photo: currentNotePhoto
+      });
+      document.getElementById('autosave-status').textContent = 'Photo attached at ' + new Date().toLocaleTimeString();
+    }
+    showNotification('📷 Photo attached! It will be inserted at the start of the Google Doc.', 'success');
+  } catch (err) {
+    console.error('Error handling photo:', err);
+    showNotification('Error processing photo: ' + err.message, 'error');
+  }
+}
+
+// Client-side image compression and resizing using an offscreen canvas
+function compressAndReadImage(file, maxDimension = 1600, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Failed to read photo file'));
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Failed to load image for compression'));
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = Math.round((height * maxDimension) / width);
+            width = maxDimension;
+          } else {
+            width = Math.round((width * maxDimension) / height);
+            height = maxDimension;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+        resolve({
+          data: compressedDataUrl,
+          mimeType: 'image/jpeg',
+          name: file.name || 'churchtech-photo.jpg',
+          timestamp: Date.now()
+        });
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function renderPhotoPreview() {
+  const container = document.getElementById('note-photo-container');
+  const img = document.getElementById('note-photo-img');
+  const meta = document.getElementById('note-photo-meta');
+  if (!container || !img) return;
+
+  if (currentNotePhoto && currentNotePhoto.data) {
+    img.src = currentNotePhoto.data;
+    container.style.display = 'block';
+    if (meta) {
+      const timeStr = currentNotePhoto.timestamp ? new Date(currentNotePhoto.timestamp).toLocaleTimeString() : '';
+      meta.textContent = `📷 Photo attached${timeStr ? ' (' + timeStr + ')' : ''} — will be added to the start of Google Doc`;
+    }
+  } else {
+    img.src = '';
+    container.style.display = 'none';
+  }
+}
+
+async function removeAttachedPhoto() {
+  if (confirm('Remove attached photo from this note?')) {
+    currentNotePhoto = null;
+    renderPhotoPreview();
+    unsavedChanges = true;
+    if (currentNoteId) {
+      await churchTechDB.updateNote(currentNoteId, undefined, undefined, undefined, undefined, {
+        photo: null
+      });
+      document.getElementById('autosave-status').textContent = 'Photo removed';
+    }
+    showNotification('Attached photo removed', 'info');
+  }
+}
+
+function openPhotoLightbox() {
+  if (!currentNotePhoto || !currentNotePhoto.data) return;
+  const modal = document.getElementById('photo-lightbox-modal');
+  const img = document.getElementById('lightbox-img');
+  if (modal && img) {
+    img.src = currentNotePhoto.data;
+    modal.style.display = 'flex';
+  }
+}
+
+function closePhotoLightbox() {
+  const modal = document.getElementById('photo-lightbox-modal');
+  if (modal) modal.style.display = 'none';
+}
+
 // ============ NOTE ACTIONS ============
 
 async function saveNote() {
@@ -218,11 +350,18 @@ async function saveNote() {
     if (isNewNote) {
       const newNote = await churchTechDB.createNote(title, content, category);
       currentNoteId = newNote.id;
+      if (currentNotePhoto) {
+        await churchTechDB.updateNote(currentNoteId, undefined, undefined, undefined, undefined, {
+          photo: currentNotePhoto
+        });
+      }
       isNewNote = false;
       document.getElementById('delete-button').style.display = 'inline-flex';
       window.history.replaceState({}, '', `editor.html?id=${encodeURIComponent(currentNoteId)}`);
     } else {
-      await churchTechDB.updateNote(currentNoteId, title, content, category);
+      await churchTechDB.updateNote(currentNoteId, title, content, category, undefined, {
+        photo: currentNotePhoto
+      });
     }
 
     unsavedChanges = false;
@@ -242,7 +381,9 @@ async function autoSaveNote() {
       const category = document.getElementById('note-category').value;
 
       if (title && content && content !== '<br>') {
-        await churchTechDB.updateNote(currentNoteId, title, content, category);
+        await churchTechDB.updateNote(currentNoteId, title, content, category, undefined, {
+          photo: currentNotePhoto
+        });
         unsavedChanges = false;
         document.getElementById('autosave-status').textContent = 'Auto-saved at ' + new Date().toLocaleTimeString();
       }

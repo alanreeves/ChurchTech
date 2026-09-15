@@ -82,11 +82,13 @@ class GoogleDriveSync {
       throw new Error('Google Drive Webhook is not configured. Please add your Webhook URL in Settings.');
     }
 
-    const webhookUrl = this.getWebhookUrl();
-    const folderId = this.getFolderId();
-
-    if (!note || !note.title) {
-      throw new Error('Invalid note data for upload');
+    // Determine target folder: Category-specific folder ID -> global default folder ID
+    let targetFolderId = this.getFolderId();
+    if (note.category && typeof categoryManager !== 'undefined') {
+      const cat = categoryManager.getCategoryByName(note.category);
+      if (cat && cat.folderId && cat.folderId.trim()) {
+        targetFolderId = cat.folderId.trim();
+      }
     }
 
     const payload = {
@@ -94,7 +96,12 @@ class GoogleDriveSync {
       content: note.text || '',
       category: note.category || 'General',
       tags: Array.isArray(note.tags) ? note.tags : [],
-      folderId: folderId,
+      folderId: targetFolderId,
+      image: (note.photo && note.photo.data) ? {
+        data: note.photo.data,
+        mimeType: note.photo.mimeType || 'image/jpeg',
+        name: note.photo.name || 'photo.jpg'
+      } : null,
       source: 'ChurchTech PWA',
       timestamp: new Date().toISOString()
     };

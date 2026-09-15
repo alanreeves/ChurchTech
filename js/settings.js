@@ -101,6 +101,11 @@ function renderCategoriesTable() {
           </div>
         </div>
         ${cat.description ? `<p class="category-card-desc">${escapeHtml(cat.description)}</p>` : ''}
+        ${cat.folderId ? `
+          <div style="margin-top: 8px; font-size: 11px; color: var(--accent-cyan); display: flex; align-items: center; gap: 5px;">
+            <span>📁</span> <span>Google Drive Folder: <code style="color: #7dd3fc; background: rgba(56,189,248,0.1); padding: 2px 6px; border-radius: 4px;">${escapeHtml(cat.folderId)}</code></span>
+          </div>
+        ` : ''}
         <div class="category-card-prompt-preview" style="margin-top: 10px; padding: 8px 10px; background: rgba(255,255,255,0.03); border-radius: 6px; border: 1px solid var(--border-light); font-size: 11px;">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
             <span style="font-weight: 600; color: #a5b4fc; display: flex; align-items: center; gap: 4px;">
@@ -120,6 +125,7 @@ function renderCategoriesTable() {
         <td style="font-size: 18px; text-align: center;">${cat.icon || '🏷️'}</td>
         <td>
           <strong style="color: #fff;">${escapeHtml(cat.name)}</strong>
+          ${cat.folderId ? `<div style="font-size: 10px; color: var(--accent-cyan);">📁 ${escapeHtml(cat.folderId)}</div>` : ''}
         </td>
         <td>
           <span style="display: inline-block; width: 14px; height: 14px; border-radius: 50%; background-color: ${cat.color}; vertical-align: middle; margin-right: 6px;"></span>
@@ -142,6 +148,10 @@ function openAddCategoryModal() {
   document.getElementById('cat-icon-input').value = '🏷️';
   document.getElementById('cat-color-input').value = '#6366f1';
   document.getElementById('cat-desc-input').value = '';
+  const folderInput = document.getElementById('cat-folder-input');
+  if (folderInput) {
+    folderInput.value = '';
+  }
   const promptInput = document.getElementById('cat-prompt-input');
   if (promptInput) {
     promptInput.value = categoryManager.getDefaultPrompt();
@@ -159,6 +169,10 @@ function openEditCategoryModal(id) {
   document.getElementById('cat-icon-input').value = cat.icon || '🏷️';
   document.getElementById('cat-color-input').value = cat.color || '#6366f1';
   document.getElementById('cat-desc-input').value = cat.description || '';
+  const folderInput = document.getElementById('cat-folder-input');
+  if (folderInput) {
+    folderInput.value = cat.folderId || '';
+  }
   const promptInput = document.getElementById('cat-prompt-input');
   if (promptInput) {
     promptInput.value = cat.prompt || categoryManager.getDefaultPrompt(cat.name);
@@ -176,6 +190,7 @@ function saveCategoryModal() {
   const icon = document.getElementById('cat-icon-input').value.trim() || '🏷️';
   const color = document.getElementById('cat-color-input').value;
   const desc = document.getElementById('cat-desc-input').value.trim();
+  const folderId = document.getElementById('cat-folder-input') ? document.getElementById('cat-folder-input').value.trim() : '';
   const prompt = document.getElementById('cat-prompt-input') ? document.getElementById('cat-prompt-input').value.trim() : '';
 
   if (!name) {
@@ -185,11 +200,11 @@ function saveCategoryModal() {
 
   try {
     if (id) {
-      categoryManager.updateCategory(id, { name, icon, color, description: desc, prompt });
-      showNotification('Category & OpenAI prompt updated', 'success');
+      categoryManager.updateCategory(id, { name, icon, color, description: desc, folderId, prompt });
+      showNotification('Category updated', 'success');
     } else {
-      categoryManager.addCategory(name, color, icon, desc, prompt);
-      showNotification('Category & OpenAI prompt added', 'success');
+      categoryManager.addCategory(name, color, icon, desc, prompt, folderId);
+      showNotification('Category added', 'success');
     }
     closeCategoryModal();
     renderCategoriesTable();
