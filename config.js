@@ -2,12 +2,12 @@
 const APP_CONFIG = {
   APP_NAME: 'ChurchTech Brain Dump',
   TAGLINE: 'Fast technical notes synced to Google Drive',
-  VERSION: '2.2.0',
+  VERSION: '2.2.1',
   BUILD_DATE: '2026-09-16',
-  VERSION_DISPLAY: 'v2.2.0 (build 2026.09.16)',
+  VERSION_DISPLAY: 'v2.2.1 (build 2026.09.16)',
   DB_NAME: 'ChurchTechDB',
   DB_VERSION: 2,
-  CACHE_NAME: 'churchtech-cache-v2.2.0-20260916',
+  CACHE_NAME: 'churchtech-cache-v2.2.1-20260916',
   CACHE_ASSETS: [
     '/',
     '/index.html',

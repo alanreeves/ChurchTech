@@ -28,7 +28,7 @@
 - Operates via a single lightweight **Google Apps Script Web App**—no Google Cloud Console project or OAuth verification required.
 
 ### 6. 🔄 Visible Versioning & Update Control
-- Prominently visible version code badge (`v2.2.0 (build 2026.09.16)`).
+- Prominently visible version code badge (`v2.2.1 (build 2026.09.16)`).
 - **"🔄 Force Reload & Update App"** button in Settings: Commands the Service Worker to flush offline caches and load the latest updates immediately.
 
 ---

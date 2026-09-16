@@ -111,13 +111,13 @@ async function handleUploadBrainDump() {
       // Show immediate success notification
       showNotification(`✅ Uploaded as "${result.title}" to Google Drive!`, 'success');
 
-      // 2. Clear input fields for next brain dump immediately
-      titleInput.value = '';
+      // 2. Clear content field for next brain dump immediately (retain Folder and Topic/Title)
       contentInput.value = '';
       const charCountEl = document.getElementById('char-count');
       if (charCountEl) charCountEl.textContent = '0 characters';
       activeEditNoteId = null;
       if (statusEl) statusEl.textContent = `Last uploaded: ${result.title}`;
+      contentInput.focus();
 
       // 3. Offer to open Google Doc
       if (result.docUrl) {
