@@ -19,12 +19,16 @@
 ### 3. 📄 Rich Google Docs Markdown Formatting
 - Full Markdown parsing converts `#`, `##`, `###` to native Google Docs headings, `- ` and `• ` to bulleted list items, `1. ` to numbered lists, `| Table |` to native tables, and `**bold**` to native bold typography.
 
-### 4. ☁️ Lightweight Google Drive Webhook
-- Operates via a single lightweight **Google Apps Script Web App**—no Google Cloud Console project or OAuth verification required.
-- Configure target Google Drive folder ID in Settings to keep all church tech brain dumps organized in one folder (or a dedicated folder per team).
+### 4. 📁 Single Master Folder ID & Dynamic Subfolders
+- **Permanent Master Folder**: Save your master folder ID once in Settings.
+- **Dynamic Subfolders**: Enter a folder/category name on the upload screen (e.g. `Network Infrastructure`, `Sound Desk`). The Google Apps Script automatically finds or creates the subfolder inside your master folder and files the note there.
+- **Remembers Last Folder**: The app remembers your last used subfolder name so you can upload consecutive notes to the same folder without retyping.
 
-### 5. 🔄 Visible Versioning & Update Control
-- Prominently visible version code badge (`v2.0.2 (build 2026.09.15)`).
+### 5. ☁️ Lightweight Google Drive Webhook
+- Operates via a single lightweight **Google Apps Script Web App**—no Google Cloud Console project or OAuth verification required.
+
+### 6. 🔄 Visible Versioning & Update Control
+- Prominently visible version code badge (`v2.2.0 (build 2026.09.16)`).
 - **"🔄 Force Reload & Update App"** button in Settings: Commands the Service Worker to flush offline caches and load the latest updates immediately.
 
 ---
@@ -44,7 +48,7 @@ To enable uploading brain dumps directly to your Google Drive:
    - **Who has access**: `Anyone`
 7. Click **Deploy** and authorize permissions when prompted.
 8. Copy the generated **Web App URL** (starts with `https://script.google.com/macros/s/.../exec`).
-9. In ChurchTech **Settings**, paste the Web App URL into the **Google Apps Script Web App URL** field, enter your **Target Google Drive Folder ID**, and click **"💾 Save Settings"**.
+9. In ChurchTech **Settings**, paste the Web App URL into the **Google Apps Script Web App URL** field, enter your **Master Google Drive Folder ID**, and click **"💾 Save Settings"**.
 10. Click **"🧪 Test Webhook Connection"** to verify!
 
 ---

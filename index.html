@@ -23,7 +23,7 @@
           <div class="header-title-wrap">
             <h1 class="header-title">
               ChurchTech <span class="header-highlight">Brain Dump</span>
-              <span class="version-badge" id="version-display">v2.0.2</span>
+              <span class="version-badge" id="version-display">v2.1.0</span>
             </h1>
             <span class="header-tagline">Fast technical brain dumps synced to Google Drive</span>
           </div>
@@ -43,6 +43,12 @@
       
       <!-- Brain Dump Input Card -->
       <section class="brain-dump-card">
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label for="note-folder" class="brain-dump-label">Folder / Category <span style="font-size: 11px; font-weight: normal; color: var(--text-muted);">(inside Master Google Drive folder)</span></label>
+          <input type="text" id="note-folder" class="form-control brain-dump-title-input" placeholder="e.g. Network Infrastructure, Sound Desk, TV Cameras" autocomplete="off">
+          <span class="settings-help">The subfolder inside your Master Google Drive folder to save this note in. It will be created automatically if it does not already exist.</span>
+        </div>
+
         <div class="form-group" style="margin-bottom: 16px;">
           <label for="note-title" class="brain-dump-label">Topic / Equipment Title</label>
           <input type="text" id="note-title" class="form-control brain-dump-title-input" placeholder="e.g. BT Business Router" autocomplete="off" autofocus>

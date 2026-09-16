@@ -91,6 +91,7 @@ class GoogleDriveSync {
       title: (note.title || 'Untitled Brain Dump').trim(),
       content: note.text || '',
       folderId: this.getFolderId(),
+      subfolderName: (note.subfolder || note.subfolderName || '').trim(),
       source: 'ChurchTech Brain Dump',
       timestamp: new Date().toISOString()
     };

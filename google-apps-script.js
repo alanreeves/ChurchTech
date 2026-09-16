@@ -39,25 +39,37 @@ function doPost(e) {
 
     const rawTitle = (payload.title || 'Untitled Brain Dump').trim();
     const content = payload.content || payload.text || '';
-    const folderId = (payload.folderId || DEFAULT_FOLDER_ID || '').trim();
+    const masterFolderId = (payload.folderId || DEFAULT_FOLDER_ID || '').trim();
+    const subfolderName = (payload.subfolderName || payload.folderName || payload.category || '').trim();
 
-    // 1. Determine destination folder
-    let targetFolder;
-    if (folderId) {
+    // 1. Determine Master / Base destination folder
+    let masterFolder;
+    if (masterFolderId) {
       try {
-        targetFolder = DriveApp.getFolderById(folderId);
+        masterFolder = DriveApp.getFolderById(masterFolderId);
       } catch (err) {
-        targetFolder = null;
+        masterFolder = null;
       }
     }
     
-    if (!targetFolder) {
+    if (!masterFolder) {
       // Find or create "ChurchTech Brain Dumps" folder in user's drive
       const folderIter = DriveApp.getFoldersByName('ChurchTech Brain Dumps');
       if (folderIter.hasNext()) {
-        targetFolder = folderIter.next();
+        masterFolder = folderIter.next();
       } else {
-        targetFolder = DriveApp.createFolder('ChurchTech Brain Dumps');
+        masterFolder = DriveApp.createFolder('ChurchTech Brain Dumps');
+      }
+    }
+
+    // 2. If subfolderName is specified, find or create subfolder inside masterFolder
+    let targetFolder = masterFolder;
+    if (subfolderName) {
+      const subIter = masterFolder.getFoldersByName(subfolderName);
+      if (subIter.hasNext()) {
+        targetFolder = subIter.next();
+      } else {
+        targetFolder = masterFolder.createFolder(subfolderName);
       }
     }
 

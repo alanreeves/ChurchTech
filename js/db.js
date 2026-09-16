@@ -131,7 +131,7 @@ class ChurchTechDB {
   }
 
   // Create a new brain dump note
-  async createNote(title, text = '') {
+  async createNote(title, text = '', subfolder = '') {
     try {
       if (!this.db) await this.initDB();
     } catch (dbErr) {
@@ -142,6 +142,7 @@ class ChurchTechDB {
       id: this.generateUUID(),
       title: (title || '').trim(),
       text: text || '',
+      subfolder: (subfolder || '').trim(),
       gdriveDocId: null,
       gdriveDocUrl: null,
       gdriveDocTitle: null,
@@ -354,14 +355,16 @@ class ChurchTechDB {
   }
 
   // Mark brain dump as uploaded to Google Drive
-  async markNoteUploaded(id, gdriveDocId, gdriveDocUrl, gdriveDocTitle = '', noteNumber = null) {
-    return this.updateNote(id, undefined, undefined, {
+  async markNoteUploaded(id, gdriveDocId, gdriveDocUrl, gdriveDocTitle = '', noteNumber = null, subfolder = '') {
+    const extra = {
       gdriveDocId,
       gdriveDocUrl,
       gdriveDocTitle,
       noteNumber,
       gdriveUploadedAt: Date.now()
-    });
+    };
+    if (subfolder) extra.subfolder = subfolder.trim();
+    return this.updateNote(id, undefined, undefined, extra);
   }
 
   // Delete brain dump

@@ -18,6 +18,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       console.warn('Initial DB open warning (non-fatal):', dbErr);
     }
 
+    // 2b. Restore last used subfolder
+    const folderInput = document.getElementById('note-folder');
+    if (folderInput) {
+      const savedFolder = localStorage.getItem('churchtech_last_subfolder') || '';
+      folderInput.value = savedFolder;
+    }
+
     // 3. Setup event listeners
     setupEventListeners();
 
@@ -58,11 +65,13 @@ function setupEventListeners() {
 
 // Upload Brain Dump to Google Drive
 async function handleUploadBrainDump() {
+  const folderInput = document.getElementById('note-folder');
   const titleInput = document.getElementById('note-title');
   const contentInput = document.getElementById('note-content');
   const btnUpload = document.getElementById('btn-upload');
   const statusEl = document.getElementById('upload-status');
 
+  const subfolder = folderInput ? (folderInput.value || '').trim() : '';
   const title = (titleInput.value || '').trim();
   const text = (contentInput.value || '').trim();
 
@@ -89,11 +98,17 @@ async function handleUploadBrainDump() {
 
     const result = await googleDriveSync.uploadNoteAsGoogleDoc({
       title: title,
-      text: text
+      text: text,
+      subfolder: subfolder
     });
 
     if (result && result.success) {
-      // 1. Show immediate success notification
+      // 1. Remember subfolder for next notes
+      if (subfolder) {
+        localStorage.setItem('churchtech_last_subfolder', subfolder);
+      }
+
+      // Show immediate success notification
       showNotification(`✅ Uploaded as "${result.title}" to Google Drive!`, 'success');
 
       // 2. Clear input fields for next brain dump immediately
@@ -111,14 +126,15 @@ async function handleUploadBrainDump() {
 
       // 4. Save to local database (guarded so local storage cannot block upload completion)
       try {
-        const savedNote = await churchTechDB.createNote(title, text);
+        const savedNote = await churchTechDB.createNote(title, text, subfolder);
         if (savedNote && savedNote.id) {
           await churchTechDB.markNoteUploaded(
             savedNote.id,
             result.docId,
             result.docUrl,
             result.title,
-            result.noteNumber
+            result.noteNumber,
+            subfolder
           );
         }
         await loadRecentDumps();
@@ -140,12 +156,13 @@ async function handleUploadBrainDump() {
 }
 
 function handleClearForm() {
+  const folderInput = document.getElementById('note-folder');
   const titleInput = document.getElementById('note-title');
   const contentInput = document.getElementById('note-content');
   const charCount = document.getElementById('char-count');
 
   if (titleInput.value || contentInput.value) {
-    if (confirm('Clear current title and notes?')) {
+    if (confirm('Clear current title and notes? (Folder selection will be kept)')) {
       titleInput.value = '';
       contentInput.value = '';
       if (charCount) charCount.textContent = '0 characters';
@@ -194,6 +211,7 @@ async function loadRecentDumps() {
               <span class="recent-dump-icon">📄</span>
               <strong class="recent-dump-title">${escapeHtml(displayTitle)}</strong>
               ${noteNumStr ? `<span class="recent-dump-num-badge">${noteNumStr}</span>` : ''}
+              ${note.subfolder ? `<span class="recent-dump-folder-badge">📁 ${escapeHtml(note.subfolder)}</span>` : ''}
             </div>
             <span class="recent-dump-date">${timeStr}</span>
           </div>
@@ -228,10 +246,14 @@ async function loadDumpIntoEditor(id) {
     const note = await churchTechDB.getNote(id);
     if (!note) return;
 
+    const folderInput = document.getElementById('note-folder');
     const titleInput = document.getElementById('note-title');
     const contentInput = document.getElementById('note-content');
     const charCount = document.getElementById('char-count');
 
+    if (folderInput && note.subfolder) {
+      folderInput.value = note.subfolder;
+    }
     titleInput.value = note.title;
     contentInput.value = note.text || '';
     if (charCount) charCount.textContent = `${(note.text || '').length} characters`;

@@ -1343,6 +1343,17 @@ textarea.form-control {
   flex-shrink: 0;
 }
 
+.recent-dump-folder-badge {
+  font-size: 10px;
+  font-weight: 600;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
 .recent-dump-date {
   font-size: 11px;
   color: var(--text-muted);
